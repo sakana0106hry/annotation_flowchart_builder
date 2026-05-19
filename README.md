@@ -16,6 +16,16 @@ npm.cmd install
 npm.cmd run dev
 ```
 
+## GitHub Pages
+
+このリポジトリは `main` にpushされるとGitHub Actionsで自動ビルドされ、GitHub Pagesへ公開されます。
+
+公開用ビルドを手元で確認する場合:
+
+```bash
+npm run build:pages
+```
+
 ## 非公開データの扱い
 
 タグセットやアノテーションルールはアプリ本体とは分離してください。
