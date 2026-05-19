@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { Dispatch, RefObject, SetStateAction } from "react";
+import type { Dispatch, DragEvent, RefObject, SetStateAction } from "react";
 import {
   CheckCircle2,
   ClipboardList,
@@ -7,6 +7,7 @@ import {
   FileJson,
   FileText,
   GitBranch,
+  GripVertical,
   ImageDown,
   Info,
   Layers3,
@@ -468,6 +469,45 @@ export default function App() {
     });
   };
 
+  const reorderStep = (
+    sourceStepId: string,
+    targetStepId: string,
+    placement: "before" | "after",
+  ) => {
+    if (sourceStepId === targetStepId) {
+      return;
+    }
+
+    setRuleSet((current) => {
+      const sourceStep = current.steps.find((step) => step.id === sourceStepId);
+      const targetExists = current.steps.some((step) => step.id === targetStepId);
+
+      if (!sourceStep || !targetExists) {
+        return current;
+      }
+
+      const remainingSteps = current.steps.filter((step) => step.id !== sourceStepId);
+      const targetIndex = remainingSteps.findIndex((step) => step.id === targetStepId);
+
+      if (targetIndex === -1) {
+        return current;
+      }
+
+      const insertIndex = placement === "after" ? targetIndex + 1 : targetIndex;
+
+      return {
+        ...current,
+        steps: [
+          ...remainingSteps.slice(0, insertIndex),
+          sourceStep,
+          ...remainingSteps.slice(insertIndex),
+        ],
+      };
+    });
+
+    setSelectedStepId(sourceStepId);
+  };
+
   const resetAll = () => {
     if (!window.confirm("保存済みのタグセットをすべて初期状態に戻しますか？")) {
       return;
@@ -685,6 +725,7 @@ export default function App() {
           onUpdateStep={updateStep}
           onAddStep={addStep}
           onRemoveStep={removeStep}
+          onReorderStep={reorderStep}
           onAddOption={addOption}
           onUpdateOption={updateOption}
           onRemoveOption={removeOption}
@@ -1333,6 +1374,7 @@ function RuleEditor({
   onUpdateStep,
   onAddStep,
   onRemoveStep,
+  onReorderStep,
   onAddOption,
   onUpdateOption,
   onRemoveOption,
@@ -1345,6 +1387,11 @@ function RuleEditor({
   onUpdateStep: (stepId: string, patch: Partial<RuleStep>) => void;
   onAddStep: (template?: StepTemplate) => void;
   onRemoveStep: (stepId: string) => void;
+  onReorderStep: (
+    sourceStepId: string,
+    targetStepId: string,
+    placement: "before" | "after",
+  ) => void;
   onAddOption: (stepId: string) => void;
   onUpdateOption: (
     stepId: string,
@@ -1353,6 +1400,23 @@ function RuleEditor({
   ) => void;
   onRemoveOption: (stepId: string, optionId: string) => void;
 }) {
+  const [draggedStepId, setDraggedStepId] = useState<string | null>(null);
+  const [dropTarget, setDropTarget] = useState<{
+    id: string;
+    placement: "before" | "after";
+  } | null>(null);
+
+  const getDropPlacement = (event: DragEvent<HTMLElement>) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const y = event.clientY - rect.top;
+    return y > rect.height / 2 ? "after" : "before";
+  };
+
+  const clearStepDrag = () => {
+    setDraggedStepId(null);
+    setDropTarget(null);
+  };
+
   if (!selectedStep) {
     return null;
   }
@@ -1418,17 +1482,89 @@ function RuleEditor({
       </div>
 
       <div className="stepList">
-        {ruleSet.steps.map((step) => (
-          <button
-            className={`stepButton ${step.id === selectedStepId ? "active" : ""}`}
-            key={step.id}
-            type="button"
-            onClick={() => onSelectStep(step.id)}
-          >
-            <span className="miniBadge">{step.badge}</span>
-            <span>{step.title}</span>
-          </button>
-        ))}
+        {ruleSet.steps.map((step, index) => {
+          const targetClass =
+            dropTarget?.id === step.id ? `drop-${dropTarget.placement}` : "";
+
+          return (
+            <div
+              className={`stepListRow ${targetClass} ${
+                draggedStepId === step.id ? "dragging" : ""
+              }`}
+              key={step.id}
+              onDragOver={(event) => {
+                if (!draggedStepId || draggedStepId === step.id) {
+                  return;
+                }
+
+                event.preventDefault();
+                event.dataTransfer.dropEffect = "move";
+                setDropTarget({
+                  id: step.id,
+                  placement: getDropPlacement(event),
+                });
+              }}
+              onDragLeave={(event) => {
+                const relatedTarget = event.relatedTarget;
+                if (
+                  relatedTarget instanceof Node &&
+                  event.currentTarget.contains(relatedTarget)
+                ) {
+                  return;
+                }
+
+                setDropTarget((current) =>
+                  current?.id === step.id ? null : current,
+                );
+              }}
+              onDrop={(event) => {
+                event.preventDefault();
+                const sourceStepId =
+                  event.dataTransfer.getData("application/x-rule-step") ||
+                  event.dataTransfer.getData("text/plain") ||
+                  draggedStepId;
+
+                if (sourceStepId && sourceStepId !== step.id) {
+                  const placement =
+                    dropTarget?.id === step.id
+                      ? dropTarget.placement
+                      : getDropPlacement(event);
+                  onReorderStep(sourceStepId, step.id, placement);
+                  onSelectStep(sourceStepId);
+                }
+
+                clearStepDrag();
+              }}
+            >
+              <span
+                aria-label={`${index + 1}番目の判定をドラッグして並び替え`}
+                className="stepDragHandle"
+                draggable
+                role="button"
+                tabIndex={0}
+                title="ドラッグして並び替え"
+                onDragStart={(event) => {
+                  event.dataTransfer.effectAllowed = "move";
+                  event.dataTransfer.setData("application/x-rule-step", step.id);
+                  event.dataTransfer.setData("text/plain", step.id);
+                  setDraggedStepId(step.id);
+                  setDropTarget(null);
+                }}
+                onDragEnd={clearStepDrag}
+              >
+                <GripVertical size={16} />
+              </span>
+              <button
+                className={`stepButton ${step.id === selectedStepId ? "active" : ""}`}
+                type="button"
+                onClick={() => onSelectStep(step.id)}
+              >
+                <span className="miniBadge">{step.badge}</span>
+                <span>{step.title}</span>
+              </button>
+            </div>
+          );
+        })}
       </div>
 
       <div className="editorBody">
