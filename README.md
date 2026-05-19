@@ -6,7 +6,9 @@
 
 https://sakana0106hry.github.io/annotation_flowchart/
 
-## 主な機能
+## ユーザー向け
+
+### 主な機能
 
 - 複数のタグセットを作成・切り替え
 - タグ、タグ説明、系統、判定フロー、分岐、オーバーライドルールを画面から編集
@@ -15,7 +17,7 @@ https://sakana0106hry.github.io/annotation_flowchart/
 - アノテーション結果をCSVで出力
 - 選択中のタグセット、または全タグセットをJSONで読み書き
 
-## 使い方
+### 使い方
 
 1. 公開版URLを開く
 2. 上部の `メニュー` を開く
@@ -25,7 +27,7 @@ https://sakana0106hry.github.io/annotation_flowchart/
 
 公開版には非公開タグセットは含まれていません。必要なタグセットJSONを別途読み込んで使ってください。
 
-## データ保存
+### データ保存
 
 画面上で編集した内容は、使用中のブラウザの `localStorage` に保存されます。
 
@@ -34,7 +36,7 @@ https://sakana0106hry.github.io/annotation_flowchart/
 - 共有やバックアップが必要な場合は、`メニュー > 入出力 > 全タグセットを書き出す` でJSONを書き出してください。
 - JSONを受け取った人は、`メニュー > 入出力 > JSONを読み込む` から読み込めます。
 
-## 非公開データの扱い
+### 非公開データの扱い
 
 タグセットやアノテーションルールが非公開情報の場合は、アプリ本体とは分離してください。
 
@@ -42,7 +44,7 @@ https://sakana0106hry.github.io/annotation_flowchart/
 - `src/rules.ts` は公開用の空テンプレートです。非公開ルールを直接書き込まないでください。
 - GitHubにpushする前に `git status --short` で `private/` や非公開JSONが含まれていないことを確認してください。
 
-## 開発
+## 開発者向け
 
 ```bash
 npm install
@@ -56,7 +58,7 @@ npm.cmd install
 npm.cmd run dev
 ```
 
-## ビルド
+### ビルド
 
 通常ビルド:
 
@@ -70,7 +72,7 @@ GitHub Pages向けビルド:
 npm run build:pages
 ```
 
-## デプロイ
+### デプロイ
 
 `main` ブランチにpushすると、GitHub Actionsで自動ビルドされ、GitHub Pagesへ公開されます。
 
@@ -78,7 +80,7 @@ GitHub Pages:
 
 https://sakana0106hry.github.io/annotation_flowchart/
 
-## 公開前チェック
+### 公開前チェック
 
 ```bash
 git status --short
