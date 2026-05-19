@@ -10,14 +10,18 @@ import {
   ImageDown,
   Info,
   Layers3,
+  ListChecks,
   Menu,
   Plus,
   RotateCcw,
   Settings2,
   ShieldCheck,
+  Split,
+  Tag,
   Tags,
   Trash2,
   Upload,
+  Wand2,
   Workflow,
   X,
 } from "lucide-react";
@@ -55,6 +59,7 @@ import type {
 
 type CenterView = "flow" | "mermaid" | "json";
 type MenuView = "sets" | "overview" | "tags" | "overrides" | "io";
+type StepTemplate = "process" | "decision" | "multi";
 
 const tagFamilies: TagFamily[] = ["社会", "FB", "タスク", "感情"];
 
@@ -179,18 +184,21 @@ export default function App() {
     }
   };
 
-  const addTag = () => {
+  const addTag = (draft?: Partial<TagDefinition>) => {
     setRuleSet((current) => {
-      const id = makeUniqueId("T_NewTag", current.tags.map((tag) => tag.id));
+      const id = makeUniqueId(
+        draft?.id?.trim() || "T_NewTag",
+        current.tags.map((tag) => tag.id),
+      );
       return {
         ...current,
         tags: [
           ...current.tags,
           {
             id,
-            family: "タスク",
-            label: "新しいタグ",
-            description: "",
+            family: draft?.family ?? "タスク",
+            label: draft?.label?.trim() || "新しいタグ",
+            description: draft?.description ?? "",
           },
         ],
       };
@@ -402,21 +410,8 @@ export default function App() {
     });
   };
 
-  const addStep = () => {
-    const newStep: RuleStep = {
-      id: makeId("step"),
-      section: "新規セクション",
-      title: "新しい判定",
-      badge: "New",
-      kind: "decision",
-      prompt: "判定質問を入力",
-      guidance: "",
-      examples: [],
-      options: [
-        { id: makeId("yes"), label: "はい", description: "タグを設定" },
-        { id: makeId("no"), label: "いいえ", description: "次へ" },
-      ],
-    };
+  const addStep = (template: StepTemplate = "decision") => {
+    const newStep = createStepFromTemplate(template);
 
     setRuleSet((current) => ({
       ...current,
@@ -771,7 +766,7 @@ function RuleMenu({
   library: RuleSetLibrary;
   ruleSet: AnnotationRuleSet;
   onAddOverrideGroup: () => void;
-  onAddTag: () => void;
+  onAddTag: (draft?: Partial<TagDefinition>) => void;
   onClose: () => void;
   onCreateRuleSet: () => void;
   onDeleteRuleSet: (ruleSetId: string) => void;
@@ -798,6 +793,18 @@ function RuleMenu({
   ) => void;
   onUpdateTag: (tagId: string, patch: Partial<TagDefinition>) => void;
 }) {
+  const [tagDraft, setTagDraft] = useState<{
+    id: string;
+    label: string;
+    family: TagFamily;
+    description: string;
+  }>({
+    id: "",
+    label: "",
+    family: "タスク",
+    description: "",
+  });
+
   if (!isOpen) {
     return null;
   }
@@ -875,6 +882,24 @@ function RuleMenu({
                     複製
                   </button>
                 </div>
+              </div>
+
+              <div className="builderGuide">
+                <button type="button" onClick={() => onSetActiveView("overview")}>
+                  <Info size={18} />
+                  <strong>1. 名前を書く</strong>
+                  <span>タグセットの目的や対象データを残す</span>
+                </button>
+                <button type="button" onClick={() => onSetActiveView("tags")}>
+                  <Tags size={18} />
+                  <strong>2. タグを作る</strong>
+                  <span>ID、表示名、説明を登録する</span>
+                </button>
+                <button type="button" onClick={() => onSetActiveView("io")}>
+                  <FileJson size={18} />
+                  <strong>3. 共有する</strong>
+                  <span>JSONで読み書きする</span>
+                </button>
               </div>
 
               <div className="saveNotice">
@@ -955,9 +980,99 @@ function RuleMenu({
             <div className="menuSection">
               <div className="menuSectionHeader">
                 <h3>タグ</h3>
-                <button className="iconTextButton compact" type="button" onClick={onAddTag}>
+                <button
+                  className="iconTextButton compact"
+                  type="button"
+                  onClick={() => onAddTag()}
+                >
                   <Plus size={16} />
-                  追加
+                  空タグ
+                </button>
+              </div>
+
+              <div className="quickCreatePanel">
+                <div className="quickCreateTitle">
+                  <Tag size={18} />
+                  <div>
+                    <h4>タグを追加</h4>
+                    <p>IDと表示名だけでも追加できます。</p>
+                  </div>
+                </div>
+                <div className="quickTagGrid">
+                  <label>
+                    <span>タグID</span>
+                    <input
+                      placeholder="例: T_Question"
+                      value={tagDraft.id}
+                      onChange={(event) =>
+                        setTagDraft((current) => ({
+                          ...current,
+                          id: event.target.value,
+                        }))
+                      }
+                    />
+                  </label>
+                  <label>
+                    <span>表示名</span>
+                    <input
+                      placeholder="例: 質問"
+                      value={tagDraft.label}
+                      onChange={(event) =>
+                        setTagDraft((current) => ({
+                          ...current,
+                          label: event.target.value,
+                        }))
+                      }
+                    />
+                  </label>
+                  <label>
+                    <span>系統</span>
+                    <select
+                      value={tagDraft.family}
+                      onChange={(event) =>
+                        setTagDraft((current) => ({
+                          ...current,
+                          family: event.target.value as TagFamily,
+                        }))
+                      }
+                    >
+                      {tagFamilies.map((family) => (
+                        <option key={family} value={family}>
+                          {family}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+                <label className="fieldBlock">
+                  <span>説明</span>
+                  <textarea
+                    rows={2}
+                    placeholder="判定基準や例を書いておくと、あとで迷いにくくなります。"
+                    value={tagDraft.description}
+                    onChange={(event) =>
+                      setTagDraft((current) => ({
+                        ...current,
+                        description: event.target.value,
+                      }))
+                    }
+                  />
+                </label>
+                <button
+                  className="fullButton compactFull"
+                  type="button"
+                  onClick={() => {
+                    onAddTag(tagDraft);
+                    setTagDraft({
+                      id: "",
+                      label: "",
+                      family: tagDraft.family,
+                      description: "",
+                    });
+                  }}
+                >
+                  <Plus size={17} />
+                  タグを追加
                 </button>
               </div>
 
@@ -1186,7 +1301,7 @@ function RuleEditor({
   onSelectStep: (id: string) => void;
   onUpdateMeta: (patch: Partial<AnnotationRuleSet>) => void;
   onUpdateStep: (stepId: string, patch: Partial<RuleStep>) => void;
-  onAddStep: () => void;
+  onAddStep: (template?: StepTemplate) => void;
   onRemoveStep: (stepId: string) => void;
   onAddOption: (stepId: string) => void;
   onUpdateOption: (
@@ -1232,6 +1347,33 @@ function RuleEditor({
           onChange={(event) => onUpdateMeta({ summary: event.target.value })}
         />
       </label>
+
+      <div className="stepTemplatePanel">
+        <div className="quickCreateTitle">
+          <Wand2 size={18} />
+          <div>
+            <h4>判定を追加</h4>
+            <p>用途に近い形から始められます。</p>
+          </div>
+        </div>
+        <div className="templateGrid">
+          <button type="button" onClick={() => onAddStep("process")}>
+            <Info size={17} />
+            <strong>説明</strong>
+            <span>読む・確認するなどの手順</span>
+          </button>
+          <button type="button" onClick={() => onAddStep("decision")}>
+            <Split size={17} />
+            <strong>はい/いいえ</strong>
+            <span>1つの判定で分岐する</span>
+          </button>
+          <button type="button" onClick={() => onAddStep("multi")}>
+            <ListChecks size={17} />
+            <strong>複数選択</strong>
+            <span>複数タグを同時に付ける</span>
+          </button>
+        </div>
+      </div>
 
       <div className="stepList">
         {ruleSet.steps.map((step) => (
@@ -1450,7 +1592,7 @@ function RuleEditor({
         </div>
       </div>
 
-      <button className="fullButton" type="button" onClick={onAddStep}>
+      <button className="fullButton" type="button" onClick={() => onAddStep("decision")}>
         <Plus size={18} />
         判定を追加
       </button>
@@ -2000,6 +2142,53 @@ function wrapText(value: string, maxChars: number): string[] {
 
 function badgeWidth(value: string): number {
   return Math.max(42, 18 + value.length * 12);
+}
+
+function createStepFromTemplate(template: StepTemplate): RuleStep {
+  const base = {
+    id: makeId("step"),
+    section: "新規セクション",
+    guidance: "",
+    examples: [],
+  };
+
+  if (template === "process") {
+    return {
+      ...base,
+      title: "新しい手順",
+      badge: "Step",
+      kind: "process",
+      prompt: "確認する内容を入力",
+      options: [],
+    };
+  }
+
+  if (template === "multi") {
+    return {
+      ...base,
+      title: "複数選択の判定",
+      badge: "Multi",
+      kind: "multi",
+      prompt: "該当するものをすべて選ぶ判定文を入力",
+      options: [
+        { id: makeId("option"), label: "該当する", description: "タグを設定" },
+        { id: makeId("option"), label: "別の該当項目", description: "タグを設定" },
+        { id: makeId("none"), label: "なし", description: "次へ" },
+      ],
+    };
+  }
+
+  return {
+    ...base,
+    title: "はい/いいえ判定",
+    badge: "Yes/No",
+    kind: "decision",
+    prompt: "判定質問を入力",
+    options: [
+      { id: makeId("yes"), label: "はい", description: "タグを設定" },
+      { id: makeId("no"), label: "いいえ", description: "次へ" },
+    ],
+  };
 }
 
 function makeId(prefix: string): string {

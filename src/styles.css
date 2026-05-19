@@ -230,6 +230,52 @@ button {
   margin-top: 1px;
 }
 
+.builderGuide {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.builderGuide button,
+.templateGrid button {
+  min-width: 0;
+  min-height: 96px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  text-align: left;
+  color: var(--ink);
+  background: #ffffff;
+  cursor: pointer;
+}
+
+.builderGuide button:hover,
+.templateGrid button:hover {
+  background: #eef8f4;
+  border-color: #9fcbbf;
+}
+
+.builderGuide svg,
+.templateGrid svg {
+  color: var(--teal);
+}
+
+.builderGuide strong,
+.templateGrid strong {
+  font-size: 0.86rem;
+}
+
+.builderGuide span,
+.templateGrid span,
+.quickCreateTitle p {
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
 .ruleSetList {
   display: grid;
   gap: 10px;
@@ -303,6 +349,42 @@ button:disabled {
 .overrideEditorList {
   display: grid;
   gap: 12px;
+}
+
+.quickCreatePanel,
+.stepTemplatePanel {
+  padding: 12px;
+  border: 1px solid #d9e6df;
+  border-radius: 8px;
+  background: #fbfcfb;
+}
+
+.quickCreateTitle {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+}
+
+.quickCreateTitle svg {
+  flex: 0 0 auto;
+  color: var(--teal);
+}
+
+.quickCreateTitle h4,
+.quickCreateTitle p {
+  margin: 0;
+}
+
+.quickTagGrid {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(110px, 0.7fr);
+  gap: 10px;
+}
+
+.compactFull {
+  min-height: 36px;
+  margin-top: 12px;
 }
 
 .tagEditorRow,
@@ -613,6 +695,17 @@ select:focus {
   margin: 14px 0;
   display: grid;
   gap: 7px;
+}
+
+.stepTemplatePanel {
+  margin-top: 14px;
+}
+
+.templateGrid {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
 }
 
 .stepButton {
@@ -1054,9 +1147,12 @@ select:focus {
   .fieldGrid.two,
   .fieldGrid.optionMetaGrid,
   .tagEditorGrid,
+  .quickTagGrid,
   .overrideTitleLine,
   .overrideColumns,
-  .ioGrid {
+  .ioGrid,
+  .builderGuide,
+  .templateGrid {
     grid-template-columns: 1fr;
   }
 
