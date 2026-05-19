@@ -1055,19 +1055,6 @@ function RuleMenu({
                     />
                   </label>
                   <label>
-                    <span>表示名</span>
-                    <input
-                      placeholder="例: 質問"
-                      value={tagDraft.label}
-                      onChange={(event) =>
-                        setTagDraft((current) => ({
-                          ...current,
-                          label: event.target.value,
-                        }))
-                      }
-                    />
-                  </label>
-                  <label>
                     <span>系統</span>
                     <select
                       value={tagDraft.family}
@@ -1084,6 +1071,19 @@ function RuleMenu({
                         </option>
                       ))}
                     </select>
+                  </label>
+                  <label>
+                    <span>表示名</span>
+                    <input
+                      placeholder="例: 質問"
+                      value={tagDraft.label}
+                      onChange={(event) =>
+                        setTagDraft((current) => ({
+                          ...current,
+                          label: event.target.value,
+                        }))
+                      }
+                    />
                   </label>
                 </div>
                 <label className="fieldBlock">
