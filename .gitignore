@@ -1,0 +1,16 @@
+node_modules/
+dist/
+
+private/
+*.private.*
+*.local.*
+
+.env
+.env.*
+!.env.example
+
+*.log
+vite-dev*.log
+
+.DS_Store
+Thumbs.db
