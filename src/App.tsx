@@ -184,6 +184,35 @@ export default function App() {
     }
   };
 
+  const renameRuleSetId = (ruleSetId: string, nextId: string): boolean => {
+    const normalizedId = nextId.trim();
+    if (!normalizedId || normalizedId === ruleSetId) {
+      return normalizedId === ruleSetId;
+    }
+
+    if (!isValidRuleSetId(normalizedId)) {
+      window.alert("タグセットIDは半角英数字、ハイフン、アンダースコアで入力してください。");
+      return false;
+    }
+
+    if (library.ruleSets.some((item) => item.id === normalizedId)) {
+      window.alert("同じタグセットIDがすでにあります。");
+      return false;
+    }
+
+    setLibrary((current) =>
+      stampLibrary({
+        ...current,
+        activeId: current.activeId === ruleSetId ? normalizedId : current.activeId,
+        ruleSets: current.ruleSets.map((item) =>
+          item.id === ruleSetId ? { ...item, id: normalizedId } : item,
+        ),
+      }),
+    );
+
+    return true;
+  };
+
   const addTag = (draft?: Partial<TagDefinition>) => {
     setRuleSet((current) => {
       const id = makeUniqueId(
@@ -281,7 +310,7 @@ export default function App() {
           ...current.overrideGroups,
           {
             id,
-            title: "新しい上書きルール",
+            title: "新しいオーバーライドルール",
             generalTags: [],
             specificTags: [],
           },
@@ -636,6 +665,7 @@ export default function App() {
         onRemoveOverrideGroup={removeOverrideGroup}
         onRemoveTag={removeTag}
         onRenameTag={renameTag}
+        onRenameRuleSetId={renameRuleSetId}
         onResetAll={resetAll}
         onSelectRuleSet={selectRuleSet}
         onSetActiveView={setMenuView}
@@ -753,6 +783,7 @@ function RuleMenu({
   onRemoveOverrideGroup,
   onRemoveTag,
   onRenameTag,
+  onRenameRuleSetId,
   onResetAll,
   onSelectRuleSet,
   onSetActiveView,
@@ -777,6 +808,7 @@ function RuleMenu({
   onRemoveOverrideGroup: (groupId: string) => void;
   onRemoveTag: (tagId: string) => void;
   onRenameTag: (tagId: string, nextId: string) => void;
+  onRenameRuleSetId: (ruleSetId: string, nextId: string) => boolean;
   onResetAll: () => void;
   onSelectRuleSet: (ruleSetId: string) => void;
   onSetActiveView: (view: MenuView) => void;
@@ -817,7 +849,7 @@ function RuleMenu({
     { id: "sets", label: "タグセット", icon: Layers3 },
     { id: "overview", label: "基本情報", icon: Info },
     { id: "tags", label: "タグ管理", icon: Tags },
-    { id: "overrides", label: "上書き", icon: ShieldCheck },
+    { id: "overrides", label: "オーバーライド", icon: ShieldCheck },
     { id: "io", label: "入出力", icon: FileJson },
   ];
 
@@ -947,7 +979,17 @@ function RuleMenu({
             <div className="menuSection">
               <label className="fieldBlock">
                 <span>タグセットID</span>
-                <input value={ruleSet.id} disabled />
+                <input
+                  key={ruleSet.id}
+                  defaultValue={ruleSet.id}
+                  onBlur={(event) => {
+                    const nextId = event.currentTarget.value.trim();
+                    const renamed = onRenameRuleSetId(ruleSet.id, nextId);
+                    if (!renamed) {
+                      event.currentTarget.value = ruleSet.id;
+                    }
+                  }}
+                />
               </label>
               <div className="fieldGrid two">
                 <label>
@@ -1156,7 +1198,7 @@ function RuleMenu({
           {activeView === "overrides" && (
             <div className="menuSection">
               <div className="menuSectionHeader">
-                <h3>上書きルール</h3>
+                <h3>オーバーライドルール</h3>
                 <button
                   className="iconTextButton compact"
                   type="button"
@@ -1185,7 +1227,7 @@ function RuleMenu({
                       <button
                         className="iconButton danger"
                         type="button"
-                        title="上書きルールを削除"
+                        title="オーバーライドルールを削除"
                         onClick={() => onRemoveOverrideGroup(group.id)}
                       >
                         <Trash2 size={15} />
@@ -1549,7 +1591,7 @@ function RuleEditor({
                   />
                 </label>
                 <label>
-                  <span>上書き</span>
+                  <span>オーバーライド</span>
                   <select
                     value={option.overrideGroupId ?? ""}
                     onChange={(event) =>
@@ -2237,4 +2279,8 @@ function isRuleSetLibraryPayload(value: unknown): value is RuleSetLibrary {
     typeof value === "object" &&
     Array.isArray((value as RuleSetLibrary).ruleSets)
   );
+}
+
+function isValidRuleSetId(value: string): boolean {
+  return /^[a-zA-Z0-9_-]+$/.test(value);
 }
