@@ -476,6 +476,12 @@ button:disabled {
   color: var(--teal);
 }
 
+.menuActionButton span {
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  text-align: center;
+}
+
 .menuActionButton:hover {
   background: #eef8f4;
   border-color: #9fcbbf;

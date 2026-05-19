@@ -1272,19 +1272,19 @@ function RuleMenu({
             <div className="menuSection ioGrid">
               <button className="menuActionButton" type="button" onClick={onImportJson}>
                 <Upload size={20} />
-                <span>JSON読込</span>
+                <span>JSONを読み込む</span>
               </button>
               <button className="menuActionButton" type="button" onClick={onExportActiveJson}>
                 <FileJson size={20} />
-                <span>現在を保存</span>
+                <span>このタグセットを書き出す</span>
               </button>
               <button className="menuActionButton" type="button" onClick={onExportLibraryJson}>
                 <Layers3 size={20} />
-                <span>全体を保存</span>
+                <span>全タグセットを書き出す</span>
               </button>
               <button className="menuActionButton dangerAction" type="button" onClick={onResetAll}>
                 <RotateCcw size={20} />
-                <span>全体初期化</span>
+                <span>保存データを初期化</span>
               </button>
             </div>
           )}
