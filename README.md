@@ -21,7 +21,7 @@ https://sakana0106hry.github.io/annotation_flowchart/
 - 判定をドラッグアンドドロップで並び替え
 - 編集内容をブラウザに自動保存
 - フローチャートをSVG / PNG / Mermaidで出力
-- アノテーション結果をCSVで出力
+- ~アノテーション結果をCSVで出力~
 - 選択中のタグセット、または全タグセットをJSONで読み書き
 
 ### 基本の使い方
