@@ -1282,6 +1282,7 @@ select:focus {
 }
 
 .contextList {
+  position: relative;
   min-height: 0;
   display: grid;
   gap: 8px;
@@ -1293,6 +1294,15 @@ select:focus {
 
 .contextList:focus-visible {
   box-shadow: 0 0 0 3px rgba(22, 133, 121, 0.14);
+}
+
+.contextCenterLine {
+  position: sticky;
+  top: 50%;
+  z-index: 3;
+  height: 0;
+  border-top: 2px solid rgba(22, 133, 121, 0.45);
+  pointer-events: none;
 }
 
 .contextList:first-of-type {
@@ -1326,7 +1336,7 @@ select:focus {
 }
 
 .contextCenterSpacer {
-  min-height: max(120px, 42%);
+  min-height: 50%;
   pointer-events: none;
 }
 
@@ -1342,11 +1352,6 @@ select:focus {
 }
 
 .contextCard.current {
-  position: sticky;
-  top: 50%;
-  z-index: 2;
-  align-self: start;
-  transform: translateY(-50%);
   border-color: var(--teal);
   background: #edf8f4;
   box-shadow: inset 4px 0 0 var(--teal);

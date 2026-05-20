@@ -2295,6 +2295,7 @@ function DatasetWorkspace({
 }) {
   const [expandedRowId, setExpandedRowId] = useState("");
   const contextListRef = useRef<HTMLDivElement | null>(null);
+  const contextScrollFrameRef = useRef<number | null>(null);
   const currentIndex = rows.findIndex((row) => row.rowId === activeRowId);
   const currentRow = currentIndex >= 0 ? rows[currentIndex] : rows[0];
   const annotation = currentRow
@@ -2364,6 +2365,68 @@ function DatasetWorkspace({
     return itemResult.finalTags.length > 0 || item.note.trim();
   }).length;
 
+  const centerActiveContextCard = () => {
+    const container = contextListRef.current;
+    const currentCard = container?.querySelector<HTMLElement>(
+      '[data-current-context="true"]',
+    );
+    if (!container || !currentCard) {
+      return;
+    }
+
+    requestAnimationFrame(() => {
+      const nextScrollTop =
+        currentCard.offsetTop +
+        currentCard.offsetHeight / 2 -
+        container.clientHeight / 2;
+      container.scrollTop = Math.max(0, nextScrollTop);
+    });
+  };
+
+  const syncActiveRowFromContextCenter = () => {
+    const container = contextListRef.current;
+    if (!container) {
+      return;
+    }
+
+    const cards = Array.from(
+      container.querySelectorAll<HTMLElement>("[data-context-row-id]"),
+    );
+    if (cards.length === 0) {
+      return;
+    }
+
+    const containerRect = container.getBoundingClientRect();
+    const centerY = containerRect.top + containerRect.height / 2;
+    const nearest = cards.reduce<HTMLElement | null>((best, card) => {
+      if (!best) {
+        return card;
+      }
+
+      const cardRect = card.getBoundingClientRect();
+      const bestRect = best.getBoundingClientRect();
+      const cardDistance = Math.abs(cardRect.top + cardRect.height / 2 - centerY);
+      const bestDistance = Math.abs(bestRect.top + bestRect.height / 2 - centerY);
+      return cardDistance < bestDistance ? card : best;
+    }, null);
+    const nextRowId = nearest?.dataset.contextRowId;
+
+    if (nextRowId && nextRowId !== currentRow?.rowId) {
+      onActiveRowChange(nextRowId);
+    }
+  };
+
+  const scheduleContextCenterSync = () => {
+    if (contextScrollFrameRef.current != null) {
+      window.cancelAnimationFrame(contextScrollFrameRef.current);
+    }
+
+    contextScrollFrameRef.current = window.requestAnimationFrame(() => {
+      contextScrollFrameRef.current = null;
+      syncActiveRowFromContextCenter();
+    });
+  };
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       const target = event.target;
@@ -2410,21 +2473,17 @@ function DatasetWorkspace({
   });
 
   useEffect(() => {
-    const container = contextListRef.current;
-    const currentCard = container?.querySelector<HTMLElement>(
-      '[data-current-context="true"]',
-    );
-    if (!container || !currentCard) {
-      return;
-    }
+    centerActiveContextCard();
+  }, [currentRow?.rowId, threadRows.length]);
 
-    requestAnimationFrame(() => {
-      const nextScrollTop =
-        currentCard.offsetTop -
-        (container.clientHeight - currentCard.offsetHeight) / 2;
-      container.scrollTop = Math.max(0, nextScrollTop);
-    });
-  }, [currentRow?.rowId]);
+  useEffect(
+    () => () => {
+      if (contextScrollFrameRef.current != null) {
+        window.cancelAnimationFrame(contextScrollFrameRef.current);
+      }
+    },
+    [],
+  );
 
   const updateCurrentAnnotation = (action: SetStateAction<ChatAnnotation>) => {
     if (!currentRow) {
@@ -2510,7 +2569,9 @@ function DatasetWorkspace({
           ref={contextListRef}
           tabIndex={0}
           aria-label="文脈タイムライン。上下キーでスクロールできます。"
+          onScroll={scheduleContextCenterSync}
         >
+          <div className="contextCenterLine" aria-hidden="true" />
           <div className="contextListHeader">
             <h3>同じスレッドの全件</h3>
             <span>{threadRows.length}件</span>
@@ -2827,6 +2888,7 @@ function ContextMessageCard({
     <article
       className={`contextCard ${isCurrent ? "current" : ""}`}
       data-current-context={isCurrent ? "true" : undefined}
+      data-context-row-id={row.rowId}
     >
       <div className="contextCardTop">
         <span className="contextRelation">{relation}</span>
