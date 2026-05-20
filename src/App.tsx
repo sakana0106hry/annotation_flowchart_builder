@@ -2296,6 +2296,7 @@ function DatasetWorkspace({
   const [expandedRowId, setExpandedRowId] = useState("");
   const contextListRef = useRef<HTMLDivElement | null>(null);
   const contextScrollFrameRef = useRef<number | null>(null);
+  const isCenteringContextRef = useRef(false);
   const currentIndex = rows.findIndex((row) => row.rowId === activeRowId);
   const currentRow = currentIndex >= 0 ? rows[currentIndex] : rows[0];
   const annotation = currentRow
@@ -2379,7 +2380,11 @@ function DatasetWorkspace({
         currentCard.offsetTop +
         currentCard.offsetHeight / 2 -
         container.clientHeight / 2;
+      isCenteringContextRef.current = true;
       container.scrollTop = Math.max(0, nextScrollTop);
+      window.setTimeout(() => {
+        isCenteringContextRef.current = false;
+      }, 80);
     });
   };
 
@@ -2417,6 +2422,10 @@ function DatasetWorkspace({
   };
 
   const scheduleContextCenterSync = () => {
+    if (isCenteringContextRef.current) {
+      return;
+    }
+
     if (contextScrollFrameRef.current != null) {
       window.cancelAnimationFrame(contextScrollFrameRef.current);
     }
