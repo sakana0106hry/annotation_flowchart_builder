@@ -127,6 +127,7 @@ export default function App() {
   const [activeChatRowId, setActiveChatRowId] = useState("");
   const [contextWindow, setContextWindow] = useState(5);
   const [contextSearch, setContextSearch] = useState("");
+  const [responsePinIds, setResponsePinIds] = useState<string[]>([]);
   const [chatAnnotations, setChatAnnotations] = useState<
     Record<string, ChatAnnotation>
   >({});
@@ -700,6 +701,7 @@ export default function App() {
       setChatRows(rows);
       setCsvFileName(file.name);
       setActiveChatRowId(rows[0]?.rowId ?? "");
+      setResponsePinIds([]);
       setChatAnnotations(() => {
         const next: Record<string, ChatAnnotation> = {};
         rows.forEach((row) => {
@@ -953,6 +955,7 @@ export default function App() {
             contextSearch={contextSearch}
             contextWindow={contextWindow}
             csvFileName={csvFileName}
+            responsePinIds={responsePinIds}
             rows={chatRows}
             activeRowId={activeChatRowId}
             ruleSet={ruleSet}
@@ -962,6 +965,7 @@ export default function App() {
             onContextWindowChange={setContextWindow}
             onExportCsv={exportAnnotatedChatCsv}
             onImportCsv={() => csvInputRef.current?.click()}
+            onResponsePinIdsChange={setResponsePinIds}
           />
         )}
       </main>
@@ -2268,6 +2272,7 @@ function DatasetWorkspace({
   contextSearch,
   contextWindow,
   csvFileName,
+  responsePinIds,
   rows,
   activeRowId,
   ruleSet,
@@ -2277,11 +2282,13 @@ function DatasetWorkspace({
   onContextWindowChange,
   onExportCsv,
   onImportCsv,
+  onResponsePinIdsChange,
 }: {
   annotations: Record<string, ChatAnnotation>;
   contextSearch: string;
   contextWindow: number;
   csvFileName: string;
+  responsePinIds: string[];
   rows: ChatRow[];
   activeRowId: string;
   ruleSet: AnnotationRuleSet;
@@ -2294,7 +2301,9 @@ function DatasetWorkspace({
   onContextWindowChange: (value: number) => void;
   onExportCsv: () => void;
   onImportCsv: () => void;
+  onResponsePinIdsChange: Dispatch<SetStateAction<string[]>>;
 }) {
+  const [expandedRowId, setExpandedRowId] = useState("");
   const currentIndex = rows.findIndex((row) => row.rowId === activeRowId);
   const currentRow = currentIndex >= 0 ? rows[currentIndex] : rows[0];
   const annotation = currentRow
@@ -2356,18 +2365,55 @@ function DatasetWorkspace({
   const pinnedRows = annotation.contextRefs
     .map((rowId) => rows.find((row) => row.rowId === rowId))
     .filter((row): row is ChatRow => Boolean(row));
+  const responsePinnedRows = responsePinIds
+    .map((rowId) => rows.find((row) => row.rowId === rowId))
+    .filter((row): row is ChatRow => Boolean(row));
   const responseRow = rows.find((row) => row.rowId === annotation.responseToId);
   const responseCandidateRows = uniqueRows([
+    ...responsePinnedRows,
     ...pinnedRows,
     ...contextRows,
     ...searchResults,
   ]).filter((row) => row.rowId !== currentRow?.rowId);
   const hasResponseLikeTag = result.finalTags.some(isResponseLikeTag);
+  const hasResponseExpectedTag = result.finalTags.some(isResponseExpectedTag);
+  const isCurrentPinned = currentRow
+    ? responsePinIds.includes(currentRow.rowId)
+    : false;
+  const expandedRow = rows.find((row) => row.rowId === expandedRowId);
   const completedCount = rows.filter((row) => {
     const item = annotations[row.rowId] ?? emptyChatAnnotation;
     const itemResult = deriveAnnotationResult(ruleSet, item.selections);
     return itemResult.finalTags.length > 0 || item.note.trim();
   }).length;
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      const target = event.target;
+      const isTyping =
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target instanceof HTMLSelectElement ||
+        (target instanceof HTMLElement && target.isContentEditable);
+
+      if (isTyping || event.altKey || event.ctrlKey || event.metaKey) {
+        return;
+      }
+
+      if (event.key === "ArrowLeft") {
+        event.preventDefault();
+        moveToIndex(currentIndex - 1);
+      }
+
+      if (event.key === "ArrowRight") {
+        event.preventDefault();
+        moveToIndex(currentIndex + 1);
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  });
 
   const updateCurrentAnnotation = (action: SetStateAction<ChatAnnotation>) => {
     if (!currentRow) {
@@ -2399,11 +2445,24 @@ function DatasetWorkspace({
     }));
   };
 
+  const toggleResponsePin = (rowId: string) => {
+    onResponsePinIdsChange((current) =>
+      current.includes(rowId)
+        ? current.filter((id) => id !== rowId)
+        : [...current, rowId],
+    );
+  };
+
   const moveToIndex = (nextIndex: number) => {
     const nextRow = rows[nextIndex];
     if (nextRow) {
       onActiveRowChange(nextRow.rowId);
     }
+  };
+
+  const tagsForRow = (row: ChatRow): string[] => {
+    const item = annotations[row.rowId] ?? emptyChatAnnotation;
+    return deriveAnnotationResult(ruleSet, item.selections).finalTags;
   };
 
   if (!currentRow) {
@@ -2510,6 +2569,15 @@ function DatasetWorkspace({
           </div>
           <div className="navButtons">
             <button
+              className={`iconTextButton compact ${isCurrentPinned ? "activeSoft" : ""}`}
+              type="button"
+              title="応答候補としてピン"
+              onClick={() => toggleResponsePin(currentRow.rowId)}
+            >
+              <Pin size={16} />
+              {isCurrentPinned ? "ピン解除" : "ピン"}
+            </button>
+            <button
               className="iconButton"
               type="button"
               title="前へ"
@@ -2529,6 +2597,11 @@ function DatasetWorkspace({
             </button>
           </div>
         </div>
+        {hasResponseExpectedTag && (
+          <p className="responseHint">
+            応答が想定されるタグが付いています。必要ならこのメッセージをピンして、後続メッセージの応答先として使えます。
+          </p>
+        )}
 
         <input
           className="rowScrubber"
@@ -2549,46 +2622,6 @@ function DatasetWorkspace({
           <p>{currentRow.content || "本文なし"}</p>
         </article>
 
-        <div className="targetSummaryGrid">
-          <div className="summaryBox">
-            <div className="summaryTitle">
-              <Pin size={15} />
-              参照文脈
-            </div>
-            {pinnedRows.length === 0 ? (
-              <p className="muted smallText">左の文脈から固定できます。</p>
-            ) : (
-              pinnedRows.map((row) => (
-                <button
-                  className="linkedRow"
-                  key={row.rowId}
-                  type="button"
-                  onClick={() => onActiveRowChange(row.rowId)}
-                >
-                  {rowLabel(row)}
-                </button>
-              ))
-            )}
-          </div>
-          <div className="summaryBox">
-            <div className="summaryTitle">
-              <Link2 size={15} />
-              応答先
-            </div>
-            {responseRow ? (
-              <button
-                className="linkedRow"
-                type="button"
-                onClick={() => onActiveRowChange(responseRow.rowId)}
-              >
-                {rowLabel(responseRow)}
-              </button>
-            ) : (
-              <p className="muted smallText">応答関係がある場合に指定します。</p>
-            )}
-          </div>
-        </div>
-
         <div className="currentTags">
           {result.finalTags.length === 0 ? (
             <span className="muted smallText">タグ未選択</span>
@@ -2600,6 +2633,70 @@ function DatasetWorkspace({
             ))
           )}
         </div>
+
+        <div className="targetSummaryGrid">
+          <div className="summaryBox">
+            <div className="summaryTitle">
+              <Pin size={15} />
+              応答候補ピン
+            </div>
+            {responsePinnedRows.length === 0 ? (
+              <p className="muted smallText">
+                応答がありそうなメッセージを上のピンボタンで残せます。
+              </p>
+            ) : (
+              <div className="centerCardList">
+                {responsePinnedRows.map((row) => (
+                  <CenterMessageCard
+                    key={row.rowId}
+                    row={row}
+                    tags={tagsForRow(row)}
+                    onOpen={() => setExpandedRowId(row.rowId)}
+                    onJump={() => onActiveRowChange(row.rowId)}
+                    onResponseTo={
+                      row.rowId === currentRow.rowId
+                        ? undefined
+                        : () => selectResponseTo(row.rowId)
+                    }
+                    onTogglePin={() => toggleResponsePin(row.rowId)}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+          <div className="summaryBox">
+            <div className="summaryTitle">
+              <Link2 size={15} />
+              このメッセージの応答先
+            </div>
+            {responseRow ? (
+              <CenterMessageCard
+                row={responseRow}
+                tags={tagsForRow(responseRow)}
+                onOpen={() => setExpandedRowId(responseRow.rowId)}
+                onJump={() => onActiveRowChange(responseRow.rowId)}
+                onResponseTo={() => selectResponseTo("")}
+                responseActionLabel="解除"
+              />
+            ) : (
+              <p className="muted smallText">
+                左のピン、文脈、検索結果、または右の注釈パネルから応答先を指定できます。
+              </p>
+            )}
+          </div>
+        </div>
+
+        {expandedRow && (
+          <MessagePreviewModal
+            row={expandedRow}
+            tags={tagsForRow(expandedRow)}
+            onClose={() => setExpandedRowId("")}
+            onJump={() => {
+              onActiveRowChange(expandedRow.rowId);
+              setExpandedRowId("");
+            }}
+          />
+        )}
       </section>
 
       <aside className="panel datasetAnnotationPanel" aria-label="CSV注釈">
@@ -2751,6 +2848,113 @@ function ContextMessageCard({
         </button>
       </div>
     </article>
+  );
+}
+
+function CenterMessageCard({
+  row,
+  tags,
+  onOpen,
+  onJump,
+  onResponseTo,
+  responseActionLabel = "応答先",
+  onTogglePin,
+}: {
+  row: ChatRow;
+  tags: string[];
+  onOpen: () => void;
+  onJump: () => void;
+  onResponseTo?: () => void;
+  responseActionLabel?: string;
+  onTogglePin?: () => void;
+}) {
+  return (
+    <article className="centerMessageCard">
+      <button className="centerMessageMain" type="button" onClick={onOpen}>
+        <span className="centerMessageMeta">
+          {row.speaker || row.authorName || "話者不明"} ・ {formatChatTime(row.createdAt)}
+        </span>
+        <span className="centerMessageText">{brief(row.content || "本文なし", 86)}</span>
+      </button>
+      <div className="centerMessageTags">
+        {tags.length === 0 ? (
+          <span className="muted smallText">タグ未選択</span>
+        ) : (
+          tags.map((tag) => (
+            <span className="miniTagPill" key={tag}>
+              {tag}
+            </span>
+          ))
+        )}
+      </div>
+      <div className="centerMessageActions">
+        <button type="button" onClick={onJump}>
+          表示
+        </button>
+        {onResponseTo && (
+          <button type="button" onClick={onResponseTo}>
+            {responseActionLabel}
+          </button>
+        )}
+        {onTogglePin && (
+          <button type="button" onClick={onTogglePin}>
+            ピン解除
+          </button>
+        )}
+      </div>
+    </article>
+  );
+}
+
+function MessagePreviewModal({
+  row,
+  tags,
+  onClose,
+  onJump,
+}: {
+  row: ChatRow;
+  tags: string[];
+  onClose: () => void;
+  onJump: () => void;
+}) {
+  return (
+    <div className="messagePreviewBackdrop" role="presentation" onMouseDown={onClose}>
+      <article
+        aria-label="メッセージ拡大表示"
+        className="messagePreviewModal"
+        role="dialog"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <div className="messagePreviewHeader">
+          <div>
+            <p className="eyebrow">{formatChatTime(row.createdAt)}</p>
+            <h3>{row.speaker || row.authorName || "話者不明"}</h3>
+          </div>
+          <button className="iconButton" type="button" title="閉じる" onClick={onClose}>
+            <X size={17} />
+          </button>
+        </div>
+        <div className="messagePreviewBody">
+          <p>{row.content || "本文なし"}</p>
+        </div>
+        <div className="messagePreviewFooter">
+          <div className="centerMessageTags">
+            {tags.length === 0 ? (
+              <span className="muted smallText">タグ未選択</span>
+            ) : (
+              tags.map((tag) => (
+                <span className="miniTagPill" key={tag}>
+                  {tag}
+                </span>
+              ))
+            )}
+          </div>
+          <button className="iconTextButton compact" type="button" onClick={onJump}>
+            表示
+          </button>
+        </div>
+      </article>
+    </div>
   );
 }
 
@@ -3160,6 +3364,19 @@ function isResponseLikeTag(tag: string): boolean {
     value.includes("response") ||
     value.startsWith("fb_") ||
     tag.includes("_A-")
+  );
+}
+
+function isResponseExpectedTag(tag: string): boolean {
+  const value = tag.toLowerCase();
+  return (
+    value.includes("question") ||
+    value.includes("request") ||
+    value.includes("check") ||
+    value.includes("greeting") ||
+    value.includes("thanking") ||
+    value.includes("apology") ||
+    value.includes("attention")
   );
 }
 

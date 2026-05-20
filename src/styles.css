@@ -634,6 +634,12 @@ h4 {
   font-size: 0.84rem;
 }
 
+.iconTextButton.activeSoft {
+  color: #ffffff;
+  background: var(--teal);
+  border-color: var(--teal-dark);
+}
+
 .iconButton:hover,
 .iconTextButton:hover,
 .fullButton:hover {
@@ -1236,6 +1242,7 @@ select:focus {
 }
 
 .targetPanel {
+  position: relative;
   overflow: hidden;
 }
 
@@ -1384,7 +1391,20 @@ select:focus {
 
 .navButtons {
   display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 7px;
+}
+
+.responseHint {
+  margin: 8px 0 0;
+  padding: 7px 9px;
+  border: 1px solid #b9d9cf;
+  border-radius: 8px;
+  color: #1d514a;
+  background: #edf8f4;
+  font-size: 0.78rem;
+  line-height: 1.45;
 }
 
 .rowScrubber {
@@ -1415,8 +1435,9 @@ select:focus {
 }
 
 .targetMessage {
-  flex: 1 1 auto;
-  min-height: 180px;
+  flex: 0 0 clamp(150px, 25vh, 240px);
+  min-height: 130px;
+  max-height: 240px;
   padding: 16px;
   border: 1px solid #d8e5df;
   border-radius: 8px;
@@ -1434,6 +1455,8 @@ select:focus {
 }
 
 .targetSummaryGrid {
+  flex: 1 1 auto;
+  min-height: 0;
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 10px;
@@ -1441,10 +1464,13 @@ select:focus {
 }
 
 .summaryBox {
-  min-height: 88px;
+  min-width: 0;
+  min-height: 0;
   padding: 10px;
   border: 1px solid #dfe7e2;
   border-radius: 8px;
+  display: flex;
+  flex-direction: column;
   background: #fbfcfb;
 }
 
@@ -1475,6 +1501,136 @@ select:focus {
   cursor: pointer;
   font-size: 0.75rem;
   font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+.centerCardList {
+  min-height: 0;
+  display: grid;
+  gap: 8px;
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.centerMessageCard {
+  min-width: 0;
+  padding: 9px;
+  border: 1px solid #dfe7e2;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.centerMessageMain {
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  display: grid;
+  gap: 5px;
+  text-align: left;
+  color: var(--ink);
+  background: transparent;
+  cursor: pointer;
+}
+
+.centerMessageMeta {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 900;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.centerMessageText {
+  color: #263a37;
+  font-size: 0.8rem;
+  font-weight: 800;
+  line-height: 1.42;
+  overflow-wrap: anywhere;
+}
+
+.centerMessageTags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 8px;
+}
+
+.miniTagPill {
+  max-width: 100%;
+  padding: 3px 7px;
+  border-radius: 999px;
+  color: #0b4b45;
+  background: #ddf3ed;
+  border: 1px solid #9fd0c3;
+  font-size: 0.68rem;
+  font-weight: 900;
+  overflow-wrap: anywhere;
+}
+
+.centerMessageActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.centerMessageActions button {
+  min-height: 28px;
+  padding: 0 8px;
+  border-radius: 7px;
+  color: var(--ink);
+  background: #f1f5f2;
+  border: 1px solid #d8e2dd;
+  cursor: pointer;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.messagePreviewBackdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  padding: 18px;
+  display: grid;
+  place-items: center;
+  background: rgba(31, 44, 42, 0.28);
+}
+
+.messagePreviewModal {
+  width: min(100%, 640px);
+  max-height: min(100%, 620px);
+  padding: 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  background: var(--panel);
+  box-shadow: var(--shadow);
+}
+
+.messagePreviewHeader,
+.messagePreviewFooter {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.messagePreviewBody {
+  min-height: 0;
+  margin: 12px 0;
+  padding: 13px;
+  border: 1px solid #d8e5df;
+  border-radius: 8px;
+  overflow: auto;
+  background: #ffffff;
+}
+
+.messagePreviewBody p {
+  margin: 0;
+  line-height: 1.7;
+  white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
 
