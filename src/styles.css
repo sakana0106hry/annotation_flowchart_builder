@@ -1325,6 +1325,11 @@ select:focus {
   white-space: nowrap;
 }
 
+.contextCenterSpacer {
+  min-height: max(120px, 42%);
+  pointer-events: none;
+}
+
 .contextList h3 {
   margin: 0;
 }
@@ -1337,6 +1342,11 @@ select:focus {
 }
 
 .contextCard.current {
+  position: sticky;
+  top: 50%;
+  z-index: 2;
+  align-self: start;
+  transform: translateY(-50%);
   border-color: var(--teal);
   background: #edf8f4;
   box-shadow: inset 4px 0 0 var(--teal);

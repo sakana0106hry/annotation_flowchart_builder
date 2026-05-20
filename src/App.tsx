@@ -2400,7 +2400,7 @@ function DatasetWorkspace({
         event.preventDefault();
         container.scrollBy({
           top: event.key === "ArrowDown" ? 120 : -120,
-          behavior: "smooth",
+          behavior: "auto",
         });
       }
     };
@@ -2410,10 +2410,20 @@ function DatasetWorkspace({
   });
 
   useEffect(() => {
-    const currentCard = contextListRef.current?.querySelector<HTMLElement>(
+    const container = contextListRef.current;
+    const currentCard = container?.querySelector<HTMLElement>(
       '[data-current-context="true"]',
     );
-    currentCard?.scrollIntoView({ block: "center" });
+    if (!container || !currentCard) {
+      return;
+    }
+
+    requestAnimationFrame(() => {
+      const nextScrollTop =
+        currentCard.offsetTop -
+        (container.clientHeight - currentCard.offsetHeight) / 2;
+      container.scrollTop = Math.max(0, nextScrollTop);
+    });
   }, [currentRow?.rowId]);
 
   const updateCurrentAnnotation = (action: SetStateAction<ChatAnnotation>) => {
@@ -2505,6 +2515,7 @@ function DatasetWorkspace({
             <h3>同じスレッドの全件</h3>
             <span>{threadRows.length}件</span>
           </div>
+          <div className="contextCenterSpacer" aria-hidden="true" />
           {threadRows.map((row) => {
             const isCurrent = row.rowId === currentRow.rowId;
             return (
@@ -2527,6 +2538,7 @@ function DatasetWorkspace({
               />
             );
           })}
+          <div className="contextCenterSpacer" aria-hidden="true" />
         </div>
 
         <div className="contextList searchResults">
