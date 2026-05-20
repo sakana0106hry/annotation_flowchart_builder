@@ -94,14 +94,12 @@ interface ChatRow {
 
 interface ChatAnnotation {
   selections: StepSelections;
-  contextRefs: string[];
   responseToId: string;
   note: string;
 }
 
 const emptyChatAnnotation: ChatAnnotation = {
   selections: {},
-  contextRefs: [],
   responseToId: "",
   note: "",
 };
@@ -2362,16 +2360,12 @@ function DatasetWorkspace({
       .slice(0, 12);
   }, [contextSearch, currentRow, rows]);
 
-  const pinnedRows = annotation.contextRefs
-    .map((rowId) => rows.find((row) => row.rowId === rowId))
-    .filter((row): row is ChatRow => Boolean(row));
   const responsePinnedRows = responsePinIds
     .map((rowId) => rows.find((row) => row.rowId === rowId))
     .filter((row): row is ChatRow => Boolean(row));
   const responseRow = rows.find((row) => row.rowId === annotation.responseToId);
   const responseCandidateRows = uniqueRows([
     ...responsePinnedRows,
-    ...pinnedRows,
     ...contextRows,
     ...searchResults,
   ]).filter((row) => row.rowId !== currentRow?.rowId);
@@ -2423,25 +2417,10 @@ function DatasetWorkspace({
     onAnnotationChange(currentRow.rowId, action);
   };
 
-  const toggleContextRef = (rowId: string) => {
-    updateCurrentAnnotation((current) => {
-      const exists = current.contextRefs.includes(rowId);
-      return {
-        ...current,
-        contextRefs: exists
-          ? current.contextRefs.filter((id) => id !== rowId)
-          : [...current.contextRefs, rowId],
-      };
-    });
-  };
-
   const selectResponseTo = (rowId: string) => {
     updateCurrentAnnotation((current) => ({
       ...current,
       responseToId: current.responseToId === rowId ? "" : rowId,
-      contextRefs: rowId
-        ? Array.from(new Set([...current.contextRefs, rowId]))
-        : current.contextRefs,
     }));
   };
 
@@ -2528,11 +2507,9 @@ function DatasetWorkspace({
             <ContextMessageCard
               key={row.rowId}
               row={row}
-              isPinned={annotation.contextRefs.includes(row.rowId)}
               isResponseTo={annotation.responseToId === row.rowId}
               relation={row.sourceIndex < currentRow.sourceIndex ? "前" : "後"}
               onJump={() => onActiveRowChange(row.rowId)}
-              onPin={() => toggleContextRef(row.rowId)}
               onResponseTo={() => selectResponseTo(row.rowId)}
             />
           ))}
@@ -2547,11 +2524,9 @@ function DatasetWorkspace({
               <ContextMessageCard
                 key={row.rowId}
                 row={row}
-                isPinned={annotation.contextRefs.includes(row.rowId)}
                 isResponseTo={annotation.responseToId === row.rowId}
                 relation="検索"
                 onJump={() => onActiveRowChange(row.rowId)}
-                onPin={() => toggleContextRef(row.rowId)}
                 onResponseTo={() => selectResponseTo(row.rowId)}
               />
             ))
@@ -2809,19 +2784,15 @@ function DatasetWorkspace({
 
 function ContextMessageCard({
   row,
-  isPinned,
   isResponseTo,
   relation,
   onJump,
-  onPin,
   onResponseTo,
 }: {
   row: ChatRow;
-  isPinned: boolean;
   isResponseTo: boolean;
   relation: string;
   onJump: () => void;
-  onPin: () => void;
   onResponseTo: () => void;
 }) {
   return (
@@ -2835,9 +2806,6 @@ function ContextMessageCard({
       <div className="contextActions">
         <button type="button" onClick={onJump}>
           表示
-        </button>
-        <button className={isPinned ? "active" : ""} type="button" onClick={onPin}>
-          参照
         </button>
         <button
           className={isResponseTo ? "active" : ""}
@@ -3246,8 +3214,6 @@ function buildAnnotatedChatCsv(
     "raw_tags",
     "response_to_row_id",
     "response_to_message_id",
-    "context_ref_row_ids",
-    "context_ref_message_ids",
     "annotation_payload_json",
   ];
   const outputHeaders = Array.from(new Set([...headers, ...annotationHeaders]));
@@ -3255,9 +3221,6 @@ function buildAnnotatedChatCsv(
     const annotation = annotations[row.rowId] ?? emptyChatAnnotation;
     const result = deriveAnnotationResult(ruleSet, annotation.selections);
     const responseRow = rows.find((item) => item.rowId === annotation.responseToId);
-    const contextRows = annotation.contextRefs
-      .map((rowId) => rows.find((item) => item.rowId === rowId))
-      .filter((item): item is ChatRow => Boolean(item));
     const values: Record<string, string> = { ...row.original };
 
     values.row_id = row.rowId;
@@ -3268,17 +3231,11 @@ function buildAnnotatedChatCsv(
     values.raw_tags = result.rawTags.join("|");
     values.response_to_row_id = annotation.responseToId;
     values.response_to_message_id = responseRow?.messageId ?? "";
-    values.context_ref_row_ids = annotation.contextRefs.join("|");
-    values.context_ref_message_ids = contextRows
-      .map((item) => item.messageId)
-      .filter(Boolean)
-      .join("|");
     values.annotation_payload_json = JSON.stringify({
       selections: annotation.selections,
       finalTags: result.finalTags,
       rawTags: result.rawTags,
       responseTo: annotation.responseToId || null,
-      contextRefs: annotation.contextRefs,
     });
 
     return outputHeaders.map((header) => csvCell(values[header] ?? "")).join(",");
