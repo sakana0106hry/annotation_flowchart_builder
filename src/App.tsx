@@ -2,7 +2,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { Dispatch, DragEvent, RefObject, SetStateAction } from "react";
 import {
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   ClipboardList,
+  Database,
   Download,
   FileJson,
   FileText,
@@ -11,10 +14,13 @@ import {
   ImageDown,
   Info,
   Layers3,
+  Link2,
   ListChecks,
   Menu,
+  Pin,
   Plus,
   RotateCcw,
+  Search,
   Settings2,
   ShieldCheck,
   Split,
@@ -59,10 +65,46 @@ import type {
 } from "./types";
 
 type CenterView = "flow" | "mermaid" | "json";
+type AppMode = "builder" | "dataset";
 type MenuView = "sets" | "overview" | "tags" | "overrides" | "io";
 type StepTemplate = "process" | "decision" | "multi";
 
 const tagFamilies: TagFamily[] = ["社会", "FB", "タスク", "感情"];
+const contextWindowOptions = [3, 5, 10, 20];
+
+interface CsvTable {
+  headers: string[];
+  records: Record<string, string>[];
+}
+
+interface ChatRow {
+  rowId: string;
+  sourceIndex: number;
+  original: Record<string, string>;
+  messageId: string;
+  threadId: string;
+  channelId: string;
+  speaker: string;
+  authorName: string;
+  createdAt: string;
+  content: string;
+  isReply: boolean;
+  replyToMessageId: string;
+}
+
+interface ChatAnnotation {
+  selections: StepSelections;
+  contextRefs: string[];
+  responseToId: string;
+  note: string;
+}
+
+const emptyChatAnnotation: ChatAnnotation = {
+  selections: {},
+  contextRefs: [],
+  responseToId: "",
+  note: "",
+};
 
 export default function App() {
   const [library, setLibrary] = useState<RuleSetLibrary>(() => loadRuleSetLibrary());
@@ -70,6 +112,7 @@ export default function App() {
   const [selectedStepId, setSelectedStepId] = useState("");
   const [selections, setSelections] = useState<StepSelections>({});
   const [centerView, setCenterView] = useState<CenterView>("flow");
+  const [appMode, setAppMode] = useState<AppMode>("builder");
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [menuView, setMenuView] = useState<MenuView>("sets");
   const [annotationInput, setAnnotationInput] = useState<AnnotationInput>({
@@ -78,8 +121,18 @@ export default function App() {
     targetMessage: "",
     notes: "",
   });
+  const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
+  const [chatRows, setChatRows] = useState<ChatRow[]>([]);
+  const [csvFileName, setCsvFileName] = useState("");
+  const [activeChatRowId, setActiveChatRowId] = useState("");
+  const [contextWindow, setContextWindow] = useState(5);
+  const [contextSearch, setContextSearch] = useState("");
+  const [chatAnnotations, setChatAnnotations] = useState<
+    Record<string, ChatAnnotation>
+  >({});
   const svgRef = useRef<SVGSVGElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const csvInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     saveRuleSetLibrary(library);
@@ -634,6 +687,70 @@ export default function App() {
     );
   };
 
+  const importChatCsv = async (file: File | undefined) => {
+    if (!file) {
+      return;
+    }
+
+    try {
+      const parsed = parseCsv(await file.text());
+      const rows = parsed.records.map(normalizeChatRow);
+
+      setCsvHeaders(parsed.headers);
+      setChatRows(rows);
+      setCsvFileName(file.name);
+      setActiveChatRowId(rows[0]?.rowId ?? "");
+      setChatAnnotations(() => {
+        const next: Record<string, ChatAnnotation> = {};
+        rows.forEach((row) => {
+          next[row.rowId] = {
+            ...emptyChatAnnotation,
+            note: row.original.annotation_notes ?? "",
+          };
+        });
+        return next;
+      });
+      setContextSearch("");
+      setAppMode("dataset");
+    } catch {
+      window.alert("CSVを読み込めませんでした。");
+    } finally {
+      if (csvInputRef.current) {
+        csvInputRef.current.value = "";
+      }
+    }
+  };
+
+  const updateChatAnnotation = (
+    rowId: string,
+    action: SetStateAction<ChatAnnotation>,
+  ) => {
+    setChatAnnotations((current) => {
+      const base = current[rowId] ?? emptyChatAnnotation;
+      const next =
+        typeof action === "function"
+          ? (action as (current: ChatAnnotation) => ChatAnnotation)(base)
+          : action;
+
+      return {
+        ...current,
+        [rowId]: next,
+      };
+    });
+  };
+
+  const exportAnnotatedChatCsv = () => {
+    if (chatRows.length === 0) {
+      return;
+    }
+
+    downloadText(
+      withAnnotatedSuffix(csvFileName || "annotated-chat.csv"),
+      `\uFEFF${buildAnnotatedChatCsv(csvHeaders, chatRows, chatAnnotations, ruleSet)}`,
+      "text/csv;charset=utf-8",
+    );
+  };
+
   return (
     <div className="appShell">
       <header className="topbar">
@@ -646,6 +763,24 @@ export default function App() {
         </div>
 
         <div className="topActions">
+          <div className="modeSwitch" aria-label="作業モード">
+            <button
+              className={appMode === "builder" ? "active" : ""}
+              type="button"
+              onClick={() => setAppMode("builder")}
+            >
+              <Workflow size={16} />
+              フロー設計
+            </button>
+            <button
+              className={appMode === "dataset" ? "active" : ""}
+              type="button"
+              onClick={() => setAppMode("dataset")}
+            >
+              <Database size={16} />
+              CSV注釈
+            </button>
+          </div>
           <select
             className="ruleSetSwitcher"
             aria-label="タグセットを切り替え"
@@ -672,6 +807,13 @@ export default function App() {
             type="file"
             accept="application/json,.json"
             onChange={(event) => importRules(event.target.files?.[0])}
+          />
+          <input
+            ref={csvInputRef}
+            className="hiddenInput"
+            type="file"
+            accept="text/csv,.csv"
+            onChange={(event) => importChatCsv(event.target.files?.[0])}
           />
         </div>
       </header>
@@ -715,93 +857,113 @@ export default function App() {
         onUpdateTag={updateTag}
       />
 
-      <main className="workspace">
-        <RuleEditor
-          ruleSet={ruleSet}
-          selectedStep={selectedStep}
-          selectedStepId={selectedStepId}
-          onSelectStep={setSelectedStepId}
-          onUpdateMeta={updateRuleMeta}
-          onUpdateStep={updateStep}
-          onAddStep={addStep}
-          onRemoveStep={removeStep}
-          onReorderStep={reorderStep}
-          onAddOption={addOption}
-          onUpdateOption={updateOption}
-          onRemoveOption={removeOption}
-        />
+      <main className={appMode === "dataset" ? "workspace datasetWorkspace" : "workspace"}>
+        {appMode === "builder" ? (
+          <>
+            <RuleEditor
+              ruleSet={ruleSet}
+              selectedStep={selectedStep}
+              selectedStepId={selectedStepId}
+              onSelectStep={setSelectedStepId}
+              onUpdateMeta={updateRuleMeta}
+              onUpdateStep={updateStep}
+              onAddStep={addStep}
+              onRemoveStep={removeStep}
+              onReorderStep={reorderStep}
+              onAddOption={addOption}
+              onUpdateOption={updateOption}
+              onRemoveOption={removeOption}
+            />
 
-        <section className="centerStage" aria-label="フロー表示">
-          <div className="stageToolbar">
-            <div className="segmented" role="tablist" aria-label="表示切替">
-              <button
-                className={centerView === "flow" ? "active" : ""}
-                type="button"
-                onClick={() => setCenterView("flow")}
-              >
-                <GitBranch size={17} />
-                フロー
-              </button>
-              <button
-                className={centerView === "mermaid" ? "active" : ""}
-                type="button"
-                onClick={() => setCenterView("mermaid")}
-              >
-                <FileText size={17} />
-                Mermaid
-              </button>
-              <button
-                className={centerView === "json" ? "active" : ""}
-                type="button"
-                onClick={() => setCenterView("json")}
-              >
-                <FileJson size={17} />
-                JSON
-              </button>
-            </div>
+            <section className="centerStage" aria-label="フロー表示">
+              <div className="stageToolbar">
+                <div className="segmented" role="tablist" aria-label="表示切替">
+                  <button
+                    className={centerView === "flow" ? "active" : ""}
+                    type="button"
+                    onClick={() => setCenterView("flow")}
+                  >
+                    <GitBranch size={17} />
+                    フロー
+                  </button>
+                  <button
+                    className={centerView === "mermaid" ? "active" : ""}
+                    type="button"
+                    onClick={() => setCenterView("mermaid")}
+                  >
+                    <FileText size={17} />
+                    Mermaid
+                  </button>
+                  <button
+                    className={centerView === "json" ? "active" : ""}
+                    type="button"
+                    onClick={() => setCenterView("json")}
+                  >
+                    <FileJson size={17} />
+                    JSON
+                  </button>
+                </div>
 
-            <div className="exportButtons">
-              <button className="iconTextButton secondary" type="button" onClick={exportSvg}>
-                <Download size={17} />
-                SVG
-              </button>
-              <button className="iconTextButton secondary" type="button" onClick={exportPng}>
-                <ImageDown size={17} />
-                PNG
-              </button>
-              <button
-                className="iconTextButton secondary"
-                type="button"
-                onClick={() =>
-                  downloadText(
-                    "annotation-flowchart.mmd",
-                    buildMermaid(ruleSet),
-                    "text/plain;charset=utf-8",
-                  )
-                }
-              >
-                <FileText size={17} />
-                MMD
-              </button>
-            </div>
-          </div>
+                <div className="exportButtons">
+                  <button className="iconTextButton secondary" type="button" onClick={exportSvg}>
+                    <Download size={17} />
+                    SVG
+                  </button>
+                  <button className="iconTextButton secondary" type="button" onClick={exportPng}>
+                    <ImageDown size={17} />
+                    PNG
+                  </button>
+                  <button
+                    className="iconTextButton secondary"
+                    type="button"
+                    onClick={() =>
+                      downloadText(
+                        "annotation-flowchart.mmd",
+                        buildMermaid(ruleSet),
+                        "text/plain;charset=utf-8",
+                      )
+                    }
+                  >
+                    <FileText size={17} />
+                    MMD
+                  </button>
+                </div>
+              </div>
 
-          {centerView === "flow" && <FlowCanvas ruleSet={ruleSet} svgRef={svgRef} />}
-          {centerView === "mermaid" && (
-            <pre className="codePane">{buildMermaid(ruleSet)}</pre>
-          )}
-          {centerView === "json" && <pre className="codePane">{buildRuleJson(ruleSet)}</pre>}
-        </section>
+              {centerView === "flow" && <FlowCanvas ruleSet={ruleSet} svgRef={svgRef} />}
+              {centerView === "mermaid" && (
+                <pre className="codePane">{buildMermaid(ruleSet)}</pre>
+              )}
+              {centerView === "json" && <pre className="codePane">{buildRuleJson(ruleSet)}</pre>}
+            </section>
 
-        <RunnerPanel
-          ruleSet={ruleSet}
-          selections={selections}
-          input={annotationInput}
-          result={result}
-          onInputChange={setAnnotationInput}
-          onSelectionChange={setSelections}
-          onExportCsv={exportResultCsv}
-        />
+            <RunnerPanel
+              ruleSet={ruleSet}
+              selections={selections}
+              input={annotationInput}
+              result={result}
+              onInputChange={setAnnotationInput}
+              onSelectionChange={setSelections}
+              onExportCsv={exportResultCsv}
+            />
+          </>
+        ) : (
+          <DatasetWorkspace
+            annotations={chatAnnotations}
+            contextSearch={contextSearch}
+            contextWindow={contextWindow}
+            csvFileName={csvFileName}
+            rows={chatRows}
+            activeRowId={activeChatRowId}
+            ruleSet={ruleSet}
+            onActiveRowChange={setActiveChatRowId}
+            onAnnotationChange={updateChatAnnotation}
+            onContextSearchChange={setContextSearch}
+            onContextWindowChange={setContextWindow}
+            onExportCsv={exportAnnotatedChatCsv}
+            onImportCsv={() => csvInputRef.current?.click()}
+          />
+        )}
       </main>
     </div>
   );
@@ -2101,6 +2263,497 @@ function RunnerPanel({
   );
 }
 
+function DatasetWorkspace({
+  annotations,
+  contextSearch,
+  contextWindow,
+  csvFileName,
+  rows,
+  activeRowId,
+  ruleSet,
+  onActiveRowChange,
+  onAnnotationChange,
+  onContextSearchChange,
+  onContextWindowChange,
+  onExportCsv,
+  onImportCsv,
+}: {
+  annotations: Record<string, ChatAnnotation>;
+  contextSearch: string;
+  contextWindow: number;
+  csvFileName: string;
+  rows: ChatRow[];
+  activeRowId: string;
+  ruleSet: AnnotationRuleSet;
+  onActiveRowChange: (rowId: string) => void;
+  onAnnotationChange: (
+    rowId: string,
+    action: SetStateAction<ChatAnnotation>,
+  ) => void;
+  onContextSearchChange: (value: string) => void;
+  onContextWindowChange: (value: number) => void;
+  onExportCsv: () => void;
+  onImportCsv: () => void;
+}) {
+  const currentIndex = rows.findIndex((row) => row.rowId === activeRowId);
+  const currentRow = currentIndex >= 0 ? rows[currentIndex] : rows[0];
+  const annotation = currentRow
+    ? annotations[currentRow.rowId] ?? emptyChatAnnotation
+    : emptyChatAnnotation;
+
+  const result = useMemo(
+    () => deriveAnnotationResult(ruleSet, annotation.selections),
+    [annotation.selections, ruleSet],
+  );
+
+  const threadRows = useMemo(() => {
+    if (!currentRow) {
+      return [];
+    }
+
+    const sameThread = rows.filter((row) => {
+      if (!currentRow.threadId) {
+        return row.channelId === currentRow.channelId;
+      }
+
+      return row.threadId === currentRow.threadId;
+    });
+
+    return sameThread.length > 0 ? sameThread : rows;
+  }, [currentRow, rows]);
+
+  const currentThreadIndex = currentRow
+    ? threadRows.findIndex((row) => row.rowId === currentRow.rowId)
+    : -1;
+
+  const contextRows =
+    currentThreadIndex >= 0
+      ? threadRows
+          .slice(
+            Math.max(0, currentThreadIndex - contextWindow),
+            currentThreadIndex + contextWindow + 1,
+          )
+          .filter((row) => row.rowId !== currentRow?.rowId)
+      : [];
+
+  const searchResults = useMemo(() => {
+    const query = contextSearch.trim().toLowerCase();
+    if (!query || !currentRow) {
+      return [];
+    }
+
+    return rows
+      .filter((row) => row.rowId !== currentRow.rowId)
+      .filter((row) =>
+        [row.content, row.speaker, row.authorName, row.threadId, row.messageId]
+          .join("\n")
+          .toLowerCase()
+          .includes(query),
+      )
+      .slice(0, 12);
+  }, [contextSearch, currentRow, rows]);
+
+  const pinnedRows = annotation.contextRefs
+    .map((rowId) => rows.find((row) => row.rowId === rowId))
+    .filter((row): row is ChatRow => Boolean(row));
+  const responseRow = rows.find((row) => row.rowId === annotation.responseToId);
+  const responseCandidateRows = uniqueRows([
+    ...pinnedRows,
+    ...contextRows,
+    ...searchResults,
+  ]).filter((row) => row.rowId !== currentRow?.rowId);
+  const hasResponseLikeTag = result.finalTags.some(isResponseLikeTag);
+  const completedCount = rows.filter((row) => {
+    const item = annotations[row.rowId] ?? emptyChatAnnotation;
+    const itemResult = deriveAnnotationResult(ruleSet, item.selections);
+    return itemResult.finalTags.length > 0 || item.note.trim();
+  }).length;
+
+  const updateCurrentAnnotation = (action: SetStateAction<ChatAnnotation>) => {
+    if (!currentRow) {
+      return;
+    }
+
+    onAnnotationChange(currentRow.rowId, action);
+  };
+
+  const toggleContextRef = (rowId: string) => {
+    updateCurrentAnnotation((current) => {
+      const exists = current.contextRefs.includes(rowId);
+      return {
+        ...current,
+        contextRefs: exists
+          ? current.contextRefs.filter((id) => id !== rowId)
+          : [...current.contextRefs, rowId],
+      };
+    });
+  };
+
+  const selectResponseTo = (rowId: string) => {
+    updateCurrentAnnotation((current) => ({
+      ...current,
+      responseToId: current.responseToId === rowId ? "" : rowId,
+      contextRefs: rowId
+        ? Array.from(new Set([...current.contextRefs, rowId]))
+        : current.contextRefs,
+    }));
+  };
+
+  const moveToIndex = (nextIndex: number) => {
+    const nextRow = rows[nextIndex];
+    if (nextRow) {
+      onActiveRowChange(nextRow.rowId);
+    }
+  };
+
+  if (!currentRow) {
+    return (
+      <section className="panel datasetEmpty">
+        <Database size={30} />
+        <h2>CSV注釈</h2>
+        <p>
+          チャットCSVを読み込むと、前後文脈を見ながら1チャットずつタグ付けできます。
+        </p>
+        <button className="iconTextButton menuButton" type="button" onClick={onImportCsv}>
+          <Upload size={18} />
+          CSVを読み込む
+        </button>
+      </section>
+    );
+  }
+
+  return (
+    <>
+      <aside className="panel contextPanel" aria-label="文脈">
+        <div className="panelHeader datasetHeader">
+          <div>
+            <h2>文脈</h2>
+            <p>{csvFileName || "CSV未選択"}</p>
+          </div>
+          <button className="iconTextButton compact" type="button" onClick={onImportCsv}>
+            <Upload size={16} />
+            読込
+          </button>
+        </div>
+
+        <div className="contextControls">
+          <label>
+            <span>前後</span>
+            <select
+              value={contextWindow}
+              onChange={(event) => onContextWindowChange(Number(event.target.value))}
+            >
+              {contextWindowOptions.map((value) => (
+                <option key={value} value={value}>
+                  {value}件
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="searchField">
+            <span>検索</span>
+            <div>
+              <Search size={15} />
+              <input
+                value={contextSearch}
+                placeholder="遠くの言及を探す"
+                onChange={(event) => onContextSearchChange(event.target.value)}
+              />
+            </div>
+          </label>
+        </div>
+
+        <div className="contextList">
+          <h3>前後文脈</h3>
+          {contextRows.map((row) => (
+            <ContextMessageCard
+              key={row.rowId}
+              row={row}
+              isPinned={annotation.contextRefs.includes(row.rowId)}
+              isResponseTo={annotation.responseToId === row.rowId}
+              relation={row.sourceIndex < currentRow.sourceIndex ? "前" : "後"}
+              onJump={() => onActiveRowChange(row.rowId)}
+              onPin={() => toggleContextRef(row.rowId)}
+              onResponseTo={() => selectResponseTo(row.rowId)}
+            />
+          ))}
+        </div>
+
+        <div className="contextList searchResults">
+          <h3>検索結果</h3>
+          {searchResults.length === 0 ? (
+            <p className="muted smallText">キーワードに合うチャットがここに出ます。</p>
+          ) : (
+            searchResults.map((row) => (
+              <ContextMessageCard
+                key={row.rowId}
+                row={row}
+                isPinned={annotation.contextRefs.includes(row.rowId)}
+                isResponseTo={annotation.responseToId === row.rowId}
+                relation="検索"
+                onJump={() => onActiveRowChange(row.rowId)}
+                onPin={() => toggleContextRef(row.rowId)}
+                onResponseTo={() => selectResponseTo(row.rowId)}
+              />
+            ))
+          )}
+        </div>
+      </aside>
+
+      <section className="panel targetPanel" aria-label="対象チャット">
+        <div className="targetTopLine">
+          <div>
+            <p className="eyebrow">
+              {currentIndex + 1} / {rows.length} ・ 注釈済み {completedCount}
+            </p>
+            <h2>{currentRow.speaker || currentRow.authorName || "話者不明"}</h2>
+          </div>
+          <div className="navButtons">
+            <button
+              className="iconButton"
+              type="button"
+              title="前へ"
+              disabled={currentIndex <= 0}
+              onClick={() => moveToIndex(currentIndex - 1)}
+            >
+              <ChevronLeft size={18} />
+            </button>
+            <button
+              className="iconButton"
+              type="button"
+              title="次へ"
+              disabled={currentIndex >= rows.length - 1}
+              onClick={() => moveToIndex(currentIndex + 1)}
+            >
+              <ChevronRight size={18} />
+            </button>
+          </div>
+        </div>
+
+        <input
+          className="rowScrubber"
+          type="range"
+          min="0"
+          max={Math.max(0, rows.length - 1)}
+          value={Math.max(0, currentIndex)}
+          onChange={(event) => moveToIndex(Number(event.target.value))}
+        />
+
+        <div className="messageMetaGrid">
+          <span>{formatChatTime(currentRow.createdAt)}</span>
+          <span>{currentRow.threadId || currentRow.channelId || "threadなし"}</span>
+          <span>{currentRow.messageId || currentRow.rowId}</span>
+        </div>
+
+        <article className="targetMessage">
+          <p>{currentRow.content || "本文なし"}</p>
+        </article>
+
+        <div className="targetSummaryGrid">
+          <div className="summaryBox">
+            <div className="summaryTitle">
+              <Pin size={15} />
+              参照文脈
+            </div>
+            {pinnedRows.length === 0 ? (
+              <p className="muted smallText">左の文脈から固定できます。</p>
+            ) : (
+              pinnedRows.map((row) => (
+                <button
+                  className="linkedRow"
+                  key={row.rowId}
+                  type="button"
+                  onClick={() => onActiveRowChange(row.rowId)}
+                >
+                  {rowLabel(row)}
+                </button>
+              ))
+            )}
+          </div>
+          <div className="summaryBox">
+            <div className="summaryTitle">
+              <Link2 size={15} />
+              応答先
+            </div>
+            {responseRow ? (
+              <button
+                className="linkedRow"
+                type="button"
+                onClick={() => onActiveRowChange(responseRow.rowId)}
+              >
+                {rowLabel(responseRow)}
+              </button>
+            ) : (
+              <p className="muted smallText">応答関係がある場合に指定します。</p>
+            )}
+          </div>
+        </div>
+
+        <div className="currentTags">
+          {result.finalTags.length === 0 ? (
+            <span className="muted smallText">タグ未選択</span>
+          ) : (
+            result.finalTags.map((tag) => (
+              <span className="tagPill" key={tag}>
+                {tag}
+              </span>
+            ))
+          )}
+        </div>
+      </section>
+
+      <aside className="panel datasetAnnotationPanel" aria-label="CSV注釈">
+        <div className="panelHeader datasetHeader">
+          <div>
+            <h2>注釈</h2>
+            <p>{ruleSet.title}</p>
+          </div>
+          <button
+            className="iconTextButton compact"
+            type="button"
+            disabled={rows.length === 0}
+            onClick={onExportCsv}
+          >
+            <Download size={16} />
+            CSV書出
+          </button>
+        </div>
+
+        <div className="datasetSteps">
+          {ruleSet.steps.map((step) => (
+            <div className="runnerStep compactStep" key={step.id}>
+              <div className="runnerStepHeader">
+                <span className="miniBadge">{step.badge}</span>
+                <strong>{step.title}</strong>
+              </div>
+              <p>{step.prompt}</p>
+              {step.options.length > 0 && (
+                <div className="choiceGrid compactChoices">
+                  {step.options.map((option) => (
+                    <label className="choice" key={option.id}>
+                      <input
+                        type={step.kind === "decision" ? "radio" : "checkbox"}
+                        name={`dataset_${currentRow.rowId}_${step.id}`}
+                        checked={(annotation.selections[step.id] ?? []).includes(
+                          option.id,
+                        )}
+                        onChange={(event) =>
+                          updateCurrentAnnotation((current) => ({
+                            ...current,
+                            selections: setSelection(
+                              current.selections,
+                              step,
+                              option.id,
+                              event.target.checked,
+                            ),
+                          }))
+                        }
+                      />
+                      <span>{option.label}</span>
+                      {option.tag && <code>{option.tag}</code>}
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+
+        <label className="fieldBlock">
+          <span>{hasResponseLikeTag ? "応答先" : "応答先（任意）"}</span>
+          <select
+            value={annotation.responseToId}
+            onChange={(event) => selectResponseTo(event.target.value)}
+          >
+            <option value="">未指定</option>
+            {responseCandidateRows.map((row) => (
+              <option key={row.rowId} value={row.rowId}>
+                {rowLabel(row)}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="fieldBlock">
+          <span>メモ</span>
+          <textarea
+            rows={3}
+            value={annotation.note}
+            onChange={(event) =>
+              updateCurrentAnnotation((current) => ({
+                ...current,
+                note: event.target.value,
+              }))
+            }
+          />
+        </label>
+
+        <div className="resultBox datasetResult">
+          <div className="resultHeader">
+            <CheckCircle2 size={18} />
+            <h3>付与タグ</h3>
+          </div>
+          {result.finalTags.length === 0 ? (
+            <p className="muted">未選択</p>
+          ) : (
+            <div className="tagList">
+              {result.finalTags.map((tag) => (
+                <span className="tagPill" key={tag}>
+                  {tag}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      </aside>
+    </>
+  );
+}
+
+function ContextMessageCard({
+  row,
+  isPinned,
+  isResponseTo,
+  relation,
+  onJump,
+  onPin,
+  onResponseTo,
+}: {
+  row: ChatRow;
+  isPinned: boolean;
+  isResponseTo: boolean;
+  relation: string;
+  onJump: () => void;
+  onPin: () => void;
+  onResponseTo: () => void;
+}) {
+  return (
+    <article className="contextCard">
+      <div className="contextCardTop">
+        <span className="contextRelation">{relation}</span>
+        <strong>{row.speaker || row.authorName || "話者不明"}</strong>
+        <time>{formatChatTime(row.createdAt)}</time>
+      </div>
+      <p>{row.content || "本文なし"}</p>
+      <div className="contextActions">
+        <button type="button" onClick={onJump}>
+          表示
+        </button>
+        <button className={isPinned ? "active" : ""} type="button" onClick={onPin}>
+          参照
+        </button>
+        <button
+          className={isResponseTo ? "active" : ""}
+          type="button"
+          onClick={onResponseTo}
+        >
+          応答先
+        </button>
+      </div>
+    </article>
+  );
+}
+
 function WrappedSvgText({
   text,
   x,
@@ -2292,6 +2945,222 @@ function inlineSvgStyles(source: SVGElement, clone: SVGElement) {
       cloneElement.setAttribute("style", style);
     }
   });
+}
+
+function parseCsv(text: string): CsvTable {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let cell = "";
+  let inQuotes = false;
+  const source = text.replace(/^\uFEFF/, "");
+
+  for (let index = 0; index < source.length; index += 1) {
+    const char = source[index];
+    const nextChar = source[index + 1];
+
+    if (char === '"') {
+      if (inQuotes && nextChar === '"') {
+        cell += '"';
+        index += 1;
+      } else {
+        inQuotes = !inQuotes;
+      }
+      continue;
+    }
+
+    if (char === "," && !inQuotes) {
+      row.push(cell);
+      cell = "";
+      continue;
+    }
+
+    if ((char === "\n" || char === "\r") && !inQuotes) {
+      if (char === "\r" && nextChar === "\n") {
+        index += 1;
+      }
+      row.push(cell);
+      rows.push(row);
+      row = [];
+      cell = "";
+      continue;
+    }
+
+    cell += char;
+  }
+
+  if (cell || row.length > 0) {
+    row.push(cell);
+    rows.push(row);
+  }
+
+  const [headerRow = [], ...dataRows] = rows;
+  const headers = headerRow.map((header) => header.trim());
+  const records = dataRows
+    .filter((items) => items.some((item) => item.trim()))
+    .map((items) => {
+      const record: Record<string, string> = {};
+      headers.forEach((header, index) => {
+        record[header] = items[index] ?? "";
+      });
+      return record;
+    });
+
+  return { headers, records };
+}
+
+function normalizeChatRow(record: Record<string, string>, index: number): ChatRow {
+  const get = (key: string) => record[key]?.trim() ?? "";
+
+  return {
+    rowId: `row-${index + 1}`,
+    sourceIndex: index,
+    original: record,
+    messageId: get("message_id"),
+    threadId: get("thread_id"),
+    channelId: get("channel_id"),
+    speaker: get("speaker") || get("author_display_name") || get("author_name"),
+    authorName: get("author_name") || get("author_display_name"),
+    createdAt: get("created_at"),
+    content: record.content ?? "",
+    isReply: get("is_reply") === "1" || get("is_reply").toLowerCase() === "true",
+    replyToMessageId: get("reply_to_message_id"),
+  };
+}
+
+function buildAnnotatedChatCsv(
+  headers: string[],
+  rows: ChatRow[],
+  annotations: Record<string, ChatAnnotation>,
+  ruleSet: AnnotationRuleSet,
+): string {
+  const annotationHeaders = [
+    "row_id",
+    "Level1",
+    "breakdown",
+    "annotation_notes",
+    "final_tags",
+    "raw_tags",
+    "response_to_row_id",
+    "response_to_message_id",
+    "context_ref_row_ids",
+    "context_ref_message_ids",
+    "annotation_payload_json",
+  ];
+  const outputHeaders = Array.from(new Set([...headers, ...annotationHeaders]));
+  const outputRows = rows.map((row) => {
+    const annotation = annotations[row.rowId] ?? emptyChatAnnotation;
+    const result = deriveAnnotationResult(ruleSet, annotation.selections);
+    const responseRow = rows.find((item) => item.rowId === annotation.responseToId);
+    const contextRows = annotation.contextRefs
+      .map((rowId) => rows.find((item) => item.rowId === rowId))
+      .filter((item): item is ChatRow => Boolean(item));
+    const values: Record<string, string> = { ...row.original };
+
+    values.row_id = row.rowId;
+    values.Level1 = result.finalTags.join("|");
+    values.breakdown = buildAnnotationBreakdown(result);
+    values.annotation_notes = annotation.note;
+    values.final_tags = result.finalTags.join("|");
+    values.raw_tags = result.rawTags.join("|");
+    values.response_to_row_id = annotation.responseToId;
+    values.response_to_message_id = responseRow?.messageId ?? "";
+    values.context_ref_row_ids = annotation.contextRefs.join("|");
+    values.context_ref_message_ids = contextRows
+      .map((item) => item.messageId)
+      .filter(Boolean)
+      .join("|");
+    values.annotation_payload_json = JSON.stringify({
+      selections: annotation.selections,
+      finalTags: result.finalTags,
+      rawTags: result.rawTags,
+      responseTo: annotation.responseToId || null,
+      contextRefs: annotation.contextRefs,
+    });
+
+    return outputHeaders.map((header) => csvCell(values[header] ?? "")).join(",");
+  });
+
+  return [outputHeaders.map(csvCell).join(","), ...outputRows].join("\n");
+}
+
+function buildAnnotationBreakdown(result: ReturnType<typeof deriveAnnotationResult>) {
+  return result.log
+    .filter((item) => item.selectedLabels.length > 0 || item.tags.length > 0)
+    .map((item) => {
+      const labels = item.selectedLabels.join("|");
+      const tags = item.tags.length > 0 ? ` -> ${item.tags.join("|")}` : "";
+      return `${item.stepTitle}: ${labels}${tags}`;
+    })
+    .join("; ");
+}
+
+function csvCell(value: string): string {
+  return `"${value.replaceAll('"', '""')}"`;
+}
+
+function withAnnotatedSuffix(filename: string): string {
+  if (filename.toLowerCase().endsWith(".csv")) {
+    return filename.replace(/\.csv$/i, "-annotated.csv");
+  }
+
+  return `${filename}-annotated.csv`;
+}
+
+function uniqueRows(rows: ChatRow[]): ChatRow[] {
+  const seen = new Set<string>();
+  return rows.filter((row) => {
+    if (seen.has(row.rowId)) {
+      return false;
+    }
+    seen.add(row.rowId);
+    return true;
+  });
+}
+
+function rowLabel(row: ChatRow): string {
+  return `${row.speaker || row.authorName || "話者不明"} ${formatChatTime(
+    row.createdAt,
+  )} ${brief(row.content, 34)}`;
+}
+
+function brief(value: string, maxLength: number): string {
+  const compact = value.replace(/\s+/g, " ").trim();
+  if (compact.length <= maxLength) {
+    return compact;
+  }
+
+  return `${compact.slice(0, maxLength)}...`;
+}
+
+function formatChatTime(value: string): string {
+  if (!value) {
+    return "時刻なし";
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return new Intl.DateTimeFormat("ja-JP", {
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+}
+
+function isResponseLikeTag(tag: string): boolean {
+  const value = tag.toLowerCase();
+  return (
+    value.includes("answer") ||
+    value.includes("agreement") ||
+    value.includes("disagreement") ||
+    value.includes("reply") ||
+    value.includes("response") ||
+    value.startsWith("fb_") ||
+    tag.includes("_A-")
+  );
 }
 
 function wrapText(value: string, maxChars: number): string[] {

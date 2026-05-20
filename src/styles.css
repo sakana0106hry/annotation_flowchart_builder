@@ -99,6 +99,32 @@ button {
   gap: 8px;
 }
 
+.modeSwitch {
+  padding: 4px;
+  border-radius: 8px;
+  display: flex;
+  gap: 4px;
+  background: #edf2ee;
+}
+
+.modeSwitch button {
+  min-height: 34px;
+  padding: 0 10px;
+  border-radius: 7px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--muted);
+  background: transparent;
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.modeSwitch button.active {
+  color: #ffffff;
+  background: var(--teal);
+}
+
 .menuButton {
   background: var(--teal);
   border-color: var(--teal-dark);
@@ -507,6 +533,11 @@ button:disabled {
   display: grid;
   grid-template-columns: minmax(300px, 0.86fr) minmax(460px, 1.42fr) minmax(320px, 0.92fr);
   gap: 16px;
+}
+
+.datasetWorkspace {
+  height: calc(100vh - 72px);
+  grid-template-columns: minmax(290px, 0.82fr) minmax(480px, 1.36fr) minmax(340px, 0.96fr);
 }
 
 .panel,
@@ -1171,9 +1202,331 @@ select:focus {
   line-height: 1.4;
 }
 
+.datasetEmpty {
+  grid-column: 1 / -1;
+  min-height: 360px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 12px;
+  text-align: center;
+}
+
+.datasetEmpty svg {
+  color: var(--teal);
+}
+
+.datasetEmpty p {
+  max-width: 520px;
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.contextPanel,
+.targetPanel,
+.datasetAnnotationPanel {
+  display: flex;
+  flex-direction: column;
+}
+
+.contextPanel,
+.datasetAnnotationPanel {
+  overflow: hidden;
+}
+
+.targetPanel {
+  overflow: hidden;
+}
+
+.datasetHeader {
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.datasetHeader p {
+  margin: 3px 0 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+  overflow-wrap: anywhere;
+}
+
+.contextControls {
+  display: grid;
+  grid-template-columns: minmax(88px, 0.34fr) minmax(0, 1fr);
+  gap: 9px;
+  margin-bottom: 10px;
+}
+
+.searchField div {
+  position: relative;
+}
+
+.searchField svg {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--muted);
+}
+
+.searchField input {
+  padding-left: 32px;
+}
+
+.contextList {
+  min-height: 0;
+  display: grid;
+  gap: 8px;
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.contextList:first-of-type {
+  flex: 1 1 auto;
+}
+
+.searchResults {
+  flex: 0 0 min(38%, 260px);
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.contextList h3 {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 2px 0 4px;
+  background: var(--panel);
+}
+
+.contextCard {
+  padding: 9px;
+  border: 1px solid #dfe7e2;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.contextCardTop {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 6px;
+  align-items: center;
+}
+
+.contextCardTop strong {
+  font-size: 0.82rem;
+  overflow-wrap: anywhere;
+}
+
+.contextCardTop time {
+  color: var(--muted);
+  font-size: 0.72rem;
+  white-space: nowrap;
+}
+
+.contextRelation {
+  padding: 2px 6px;
+  border-radius: 999px;
+  color: #5f4710;
+  background: #f3e9cd;
+  font-size: 0.68rem;
+  font-weight: 900;
+}
+
+.contextCard p {
+  max-height: 6.6em;
+  margin: 7px 0 0;
+  overflow: hidden;
+  color: #31413d;
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.contextActions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.contextActions button {
+  min-height: 29px;
+  border-radius: 7px;
+  color: var(--ink);
+  background: #f1f5f2;
+  border: 1px solid #d8e2dd;
+  cursor: pointer;
+  font-size: 0.73rem;
+  font-weight: 800;
+}
+
+.contextActions button.active {
+  color: #ffffff;
+  background: var(--teal);
+  border-color: var(--teal-dark);
+}
+
+.targetTopLine {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.eyebrow {
+  margin: 0 0 5px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.navButtons {
+  display: flex;
+  gap: 7px;
+}
+
+.rowScrubber {
+  margin: 12px 0;
+  height: auto;
+  accent-color: var(--teal);
+}
+
+.messageMetaGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1fr) minmax(0, 1fr);
+  gap: 7px;
+  margin-bottom: 10px;
+}
+
+.messageMetaGrid span {
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1px solid #e0e7e3;
+  border-radius: 8px;
+  color: var(--muted);
+  background: #fbfcfb;
+  font-size: 0.72rem;
+  font-weight: 800;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.targetMessage {
+  flex: 1 1 auto;
+  min-height: 180px;
+  padding: 16px;
+  border: 1px solid #d8e5df;
+  border-radius: 8px;
+  overflow: auto;
+  background: #ffffff;
+}
+
+.targetMessage p {
+  margin: 0;
+  color: #223331;
+  font-size: 1rem;
+  line-height: 1.72;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.targetSummaryGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.summaryBox {
+  min-height: 88px;
+  padding: 10px;
+  border: 1px solid #dfe7e2;
+  border-radius: 8px;
+  background: #fbfcfb;
+}
+
+.summaryTitle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+  color: #344844;
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.summaryTitle svg {
+  color: var(--teal);
+}
+
+.linkedRow {
+  width: 100%;
+  min-height: 28px;
+  margin-top: 5px;
+  padding: 5px 7px;
+  border-radius: 7px;
+  text-align: left;
+  color: #0d5f58;
+  background: #eaf7f3;
+  border: 1px solid #badbd2;
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+.currentTags {
+  min-height: 40px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  align-items: center;
+  margin-top: 10px;
+}
+
+.datasetSteps {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.compactStep {
+  padding: 10px;
+}
+
+.compactChoices .choice {
+  padding: 7px;
+}
+
+.datasetResult {
+  flex: 0 0 auto;
+}
+
+.smallText {
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
 @media (max-width: 1260px) {
   .workspace {
     grid-template-columns: minmax(280px, 0.95fr) minmax(420px, 1.25fr);
+  }
+
+  .datasetWorkspace {
+    height: auto;
+    grid-template-columns: minmax(300px, 0.8fr) minmax(420px, 1.2fr);
+  }
+
+  .datasetAnnotationPanel {
+    grid-column: 1 / -1;
+    max-height: none;
   }
 
   .runnerPanel {
@@ -1196,6 +1549,14 @@ select:focus {
     flex-wrap: wrap;
   }
 
+  .modeSwitch {
+    width: 100%;
+  }
+
+  .modeSwitch button {
+    flex: 1;
+  }
+
   .ruleSetSwitcher {
     width: min(100%, 360px);
   }
@@ -1203,6 +1564,10 @@ select:focus {
   .workspace {
     grid-template-columns: 1fr;
     padding: 10px;
+  }
+
+  .datasetWorkspace {
+    height: auto;
   }
 
   .panel,
@@ -1218,7 +1583,10 @@ select:focus {
   .overrideColumns,
   .ioGrid,
   .builderGuide,
-  .templateGrid {
+  .templateGrid,
+  .contextControls,
+  .messageMetaGrid,
+  .targetSummaryGrid {
     grid-template-columns: 1fr;
   }
 
