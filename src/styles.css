@@ -1287,6 +1287,12 @@ select:focus {
   gap: 8px;
   overflow: auto;
   padding-right: 2px;
+  border-radius: 8px;
+  outline: none;
+}
+
+.contextList:focus-visible {
+  box-shadow: 0 0 0 3px rgba(22, 133, 121, 0.14);
 }
 
 .contextList:first-of-type {
@@ -1313,6 +1319,17 @@ select:focus {
   border: 1px solid #dfe7e2;
   border-radius: 8px;
   background: #ffffff;
+}
+
+.contextCard.current {
+  border-color: var(--teal);
+  background: #edf8f4;
+  box-shadow: inset 4px 0 0 var(--teal);
+}
+
+.contextCard.current .contextRelation {
+  color: #ffffff;
+  background: var(--teal);
 }
 
 .contextCardTop {
@@ -1585,6 +1602,19 @@ select:focus {
   cursor: pointer;
   font-size: 0.72rem;
   font-weight: 800;
+}
+
+.contextCurrentNote {
+  min-height: 29px;
+  border-radius: 7px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #1d514a;
+  background: #dff2ec;
+  border: 1px solid #a8d0c5;
+  font-size: 0.73rem;
+  font-weight: 900;
 }
 
 .messagePreviewBackdrop {

@@ -2302,6 +2302,7 @@ function DatasetWorkspace({
   onResponsePinIdsChange: Dispatch<SetStateAction<string[]>>;
 }) {
   const [expandedRowId, setExpandedRowId] = useState("");
+  const contextListRef = useRef<HTMLDivElement | null>(null);
   const currentIndex = rows.findIndex((row) => row.rowId === activeRowId);
   const currentRow = currentIndex >= 0 ? rows[currentIndex] : rows[0];
   const annotation = currentRow
@@ -2333,15 +2334,14 @@ function DatasetWorkspace({
     ? threadRows.findIndex((row) => row.rowId === currentRow.rowId)
     : -1;
 
-  const contextRows =
+  const contextWindowRows =
     currentThreadIndex >= 0
       ? threadRows
-          .slice(
-            Math.max(0, currentThreadIndex - contextWindow),
-            currentThreadIndex + contextWindow + 1,
-          )
-          .filter((row) => row.rowId !== currentRow?.rowId)
+          .slice(Math.max(0, currentThreadIndex - contextWindow), currentThreadIndex + contextWindow + 1)
       : [];
+  const contextRows = contextWindowRows.filter(
+    (row) => row.rowId !== currentRow?.rowId,
+  );
 
   const searchResults = useMemo(() => {
     const query = contextSearch.trim().toLowerCase();
@@ -2394,6 +2394,10 @@ function DatasetWorkspace({
         return;
       }
 
+      if (expandedRow) {
+        return;
+      }
+
       if (event.key === "ArrowLeft") {
         event.preventDefault();
         moveToIndex(currentIndex - 1);
@@ -2403,11 +2407,31 @@ function DatasetWorkspace({
         event.preventDefault();
         moveToIndex(currentIndex + 1);
       }
+
+      if (event.key === "ArrowUp" || event.key === "ArrowDown") {
+        const container = contextListRef.current;
+        if (!container) {
+          return;
+        }
+
+        event.preventDefault();
+        container.scrollBy({
+          top: event.key === "ArrowDown" ? 120 : -120,
+          behavior: "smooth",
+        });
+      }
     };
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   });
+
+  useEffect(() => {
+    const currentCard = contextListRef.current?.querySelector<HTMLElement>(
+      '[data-current-context="true"]',
+    );
+    currentCard?.scrollIntoView({ block: "center" });
+  }, [currentRow?.rowId, contextWindow]);
 
   const updateCurrentAnnotation = (action: SetStateAction<ChatAnnotation>) => {
     if (!currentRow) {
@@ -2501,18 +2525,35 @@ function DatasetWorkspace({
           </label>
         </div>
 
-        <div className="contextList">
+        <div
+          className="contextList"
+          ref={contextListRef}
+          tabIndex={0}
+          aria-label="前後文脈。上下キーでスクロールできます。"
+        >
           <h3>前後文脈</h3>
-          {contextRows.map((row) => (
-            <ContextMessageCard
-              key={row.rowId}
-              row={row}
-              isResponseTo={annotation.responseToId === row.rowId}
-              relation={row.sourceIndex < currentRow.sourceIndex ? "前" : "後"}
-              onJump={() => onActiveRowChange(row.rowId)}
-              onResponseTo={() => selectResponseTo(row.rowId)}
-            />
-          ))}
+          {contextWindowRows.map((row) => {
+            const isCurrent = row.rowId === currentRow.rowId;
+            return (
+              <ContextMessageCard
+                key={row.rowId}
+                row={row}
+                isCurrent={isCurrent}
+                isResponseTo={annotation.responseToId === row.rowId}
+                relation={
+                  isCurrent
+                    ? "現在"
+                    : row.sourceIndex < currentRow.sourceIndex
+                      ? "前"
+                      : "後"
+                }
+                onJump={() => onActiveRowChange(row.rowId)}
+                onResponseTo={
+                  isCurrent ? undefined : () => selectResponseTo(row.rowId)
+                }
+              />
+            );
+          })}
         </div>
 
         <div className="contextList searchResults">
@@ -2784,19 +2825,24 @@ function DatasetWorkspace({
 
 function ContextMessageCard({
   row,
+  isCurrent = false,
   isResponseTo,
   relation,
   onJump,
   onResponseTo,
 }: {
   row: ChatRow;
+  isCurrent?: boolean;
   isResponseTo: boolean;
   relation: string;
   onJump: () => void;
-  onResponseTo: () => void;
+  onResponseTo?: () => void;
 }) {
   return (
-    <article className="contextCard">
+    <article
+      className={`contextCard ${isCurrent ? "current" : ""}`}
+      data-current-context={isCurrent ? "true" : undefined}
+    >
       <div className="contextCardTop">
         <span className="contextRelation">{relation}</span>
         <strong>{row.speaker || row.authorName || "話者不明"}</strong>
@@ -2807,13 +2853,17 @@ function ContextMessageCard({
         <button type="button" onClick={onJump}>
           表示
         </button>
-        <button
-          className={isResponseTo ? "active" : ""}
-          type="button"
-          onClick={onResponseTo}
-        >
-          応答先
-        </button>
+        {onResponseTo ? (
+          <button
+            className={isResponseTo ? "active" : ""}
+            type="button"
+            onClick={onResponseTo}
+          >
+            応答先
+          </button>
+        ) : (
+          <span className="contextCurrentNote">中央に表示中</span>
+        )}
       </div>
     </article>
   );
