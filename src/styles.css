@@ -1260,7 +1260,7 @@ select:focus {
 
 .contextControls {
   display: grid;
-  grid-template-columns: minmax(88px, 0.34fr) minmax(0, 1fr);
+  grid-template-columns: 1fr;
   gap: 9px;
   margin-bottom: 10px;
 }
@@ -1306,12 +1306,27 @@ select:focus {
   border-top: 1px solid var(--line);
 }
 
-.contextList h3 {
+.contextListHeader {
   position: sticky;
   top: 0;
   z-index: 1;
   padding: 2px 0 4px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   background: var(--panel);
+}
+
+.contextListHeader span {
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.contextList h3 {
+  margin: 0;
 }
 
 .contextCard {

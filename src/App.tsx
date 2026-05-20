@@ -70,7 +70,6 @@ type MenuView = "sets" | "overview" | "tags" | "overrides" | "io";
 type StepTemplate = "process" | "decision" | "multi";
 
 const tagFamilies: TagFamily[] = ["社会", "FB", "タスク", "感情"];
-const contextWindowOptions = [3, 5, 10, 20];
 
 interface CsvTable {
   headers: string[];
@@ -123,7 +122,6 @@ export default function App() {
   const [chatRows, setChatRows] = useState<ChatRow[]>([]);
   const [csvFileName, setCsvFileName] = useState("");
   const [activeChatRowId, setActiveChatRowId] = useState("");
-  const [contextWindow, setContextWindow] = useState(5);
   const [contextSearch, setContextSearch] = useState("");
   const [responsePinIds, setResponsePinIds] = useState<string[]>([]);
   const [chatAnnotations, setChatAnnotations] = useState<
@@ -951,7 +949,6 @@ export default function App() {
           <DatasetWorkspace
             annotations={chatAnnotations}
             contextSearch={contextSearch}
-            contextWindow={contextWindow}
             csvFileName={csvFileName}
             responsePinIds={responsePinIds}
             rows={chatRows}
@@ -960,7 +957,6 @@ export default function App() {
             onActiveRowChange={setActiveChatRowId}
             onAnnotationChange={updateChatAnnotation}
             onContextSearchChange={setContextSearch}
-            onContextWindowChange={setContextWindow}
             onExportCsv={exportAnnotatedChatCsv}
             onImportCsv={() => csvInputRef.current?.click()}
             onResponsePinIdsChange={setResponsePinIds}
@@ -2268,7 +2264,6 @@ function RunnerPanel({
 function DatasetWorkspace({
   annotations,
   contextSearch,
-  contextWindow,
   csvFileName,
   responsePinIds,
   rows,
@@ -2277,14 +2272,12 @@ function DatasetWorkspace({
   onActiveRowChange,
   onAnnotationChange,
   onContextSearchChange,
-  onContextWindowChange,
   onExportCsv,
   onImportCsv,
   onResponsePinIdsChange,
 }: {
   annotations: Record<string, ChatAnnotation>;
   contextSearch: string;
-  contextWindow: number;
   csvFileName: string;
   responsePinIds: string[];
   rows: ChatRow[];
@@ -2296,7 +2289,6 @@ function DatasetWorkspace({
     action: SetStateAction<ChatAnnotation>,
   ) => void;
   onContextSearchChange: (value: string) => void;
-  onContextWindowChange: (value: number) => void;
   onExportCsv: () => void;
   onImportCsv: () => void;
   onResponsePinIdsChange: Dispatch<SetStateAction<string[]>>;
@@ -2330,16 +2322,7 @@ function DatasetWorkspace({
     return sameThread.length > 0 ? sameThread : rows;
   }, [currentRow, rows]);
 
-  const currentThreadIndex = currentRow
-    ? threadRows.findIndex((row) => row.rowId === currentRow.rowId)
-    : -1;
-
-  const contextWindowRows =
-    currentThreadIndex >= 0
-      ? threadRows
-          .slice(Math.max(0, currentThreadIndex - contextWindow), currentThreadIndex + contextWindow + 1)
-      : [];
-  const contextRows = contextWindowRows.filter(
+  const contextRows = threadRows.filter(
     (row) => row.rowId !== currentRow?.rowId,
   );
 
@@ -2431,7 +2414,7 @@ function DatasetWorkspace({
       '[data-current-context="true"]',
     );
     currentCard?.scrollIntoView({ block: "center" });
-  }, [currentRow?.rowId, contextWindow]);
+  }, [currentRow?.rowId]);
 
   const updateCurrentAnnotation = (action: SetStateAction<ChatAnnotation>) => {
     if (!currentRow) {
@@ -2474,7 +2457,7 @@ function DatasetWorkspace({
         <Database size={30} />
         <h2>CSV注釈</h2>
         <p>
-          チャットCSVを読み込むと、前後文脈を見ながら1チャットずつタグ付けできます。
+          チャットCSVを読み込むと、文脈タイムラインを見ながら1チャットずつタグ付けできます。
         </p>
         <button className="iconTextButton menuButton" type="button" onClick={onImportCsv}>
           <Upload size={18} />
@@ -2499,19 +2482,6 @@ function DatasetWorkspace({
         </div>
 
         <div className="contextControls">
-          <label>
-            <span>前後</span>
-            <select
-              value={contextWindow}
-              onChange={(event) => onContextWindowChange(Number(event.target.value))}
-            >
-              {contextWindowOptions.map((value) => (
-                <option key={value} value={value}>
-                  {value}件
-                </option>
-              ))}
-            </select>
-          </label>
           <label className="searchField">
             <span>検索</span>
             <div>
@@ -2529,10 +2499,13 @@ function DatasetWorkspace({
           className="contextList"
           ref={contextListRef}
           tabIndex={0}
-          aria-label="前後文脈。上下キーでスクロールできます。"
+          aria-label="文脈タイムライン。上下キーでスクロールできます。"
         >
-          <h3>前後文脈</h3>
-          {contextWindowRows.map((row) => {
+          <div className="contextListHeader">
+            <h3>同じスレッドの全件</h3>
+            <span>{threadRows.length}件</span>
+          </div>
+          {threadRows.map((row) => {
             const isCurrent = row.rowId === currentRow.rowId;
             return (
               <ContextMessageCard
