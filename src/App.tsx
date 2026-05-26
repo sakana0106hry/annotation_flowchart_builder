@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { Dispatch, DragEvent, RefObject, SetStateAction } from "react";
 import {
   CheckCircle2,
@@ -2295,6 +2295,7 @@ function DatasetWorkspace({
 }) {
   const [expandedRowId, setExpandedRowId] = useState("");
   const contextListRef = useRef<HTMLDivElement | null>(null);
+  const activeContextCardRef = useRef<HTMLElement | null>(null);
   const activeContextScrollFrameRef = useRef<number | null>(null);
   const contextScrollFrameRef = useRef<number | null>(null);
   const isCenteringContextRef = useRef(false);
@@ -2367,13 +2368,22 @@ function DatasetWorkspace({
     return itemResult.finalTags.length > 0 || item.note.trim();
   }).length;
 
-  const centerActiveContextCard = () => {
+  const keepActiveContextCardVisible = () => {
     const container = contextListRef.current;
-    const currentCard = container?.querySelector<HTMLElement>(
-      '[data-current-context="true"]',
-    );
+    const referencedCard = activeContextCardRef.current;
+    const currentCard =
+      referencedCard &&
+      container?.contains(referencedCard) &&
+      referencedCard.dataset.currentContext === "true"
+        ? referencedCard
+        : container?.querySelector<HTMLElement>('[data-current-context="true"]');
     if (!container || !currentCard) {
       return;
+    }
+
+    if (contextScrollFrameRef.current != null) {
+      window.cancelAnimationFrame(contextScrollFrameRef.current);
+      contextScrollFrameRef.current = null;
     }
 
     if (activeContextScrollFrameRef.current != null) {
@@ -2382,19 +2392,39 @@ function DatasetWorkspace({
 
     activeContextScrollFrameRef.current = window.requestAnimationFrame(() => {
       activeContextScrollFrameRef.current = null;
-      const nextScrollTop =
-        currentCard.offsetTop +
-        currentCard.offsetHeight / 2 -
-        container.clientHeight / 2;
+      const containerRect = container.getBoundingClientRect();
+      const currentCardRect = currentCard.getBoundingClientRect();
+      const headerRect = container
+        .querySelector<HTMLElement>(".contextListHeader")
+        ?.getBoundingClientRect();
+      const visiblePadding = 10;
+      const visibleTop =
+        Math.max(containerRect.top, headerRect?.bottom ?? containerRect.top) +
+        visiblePadding;
+      const visibleBottom = containerRect.bottom - visiblePadding;
+      const visibleHeight = Math.max(0, visibleBottom - visibleTop);
+      let scrollDelta = 0;
+
+      if (currentCardRect.height > visibleHeight) {
+        scrollDelta = currentCardRect.top - visibleTop;
+      } else if (currentCardRect.top < visibleTop) {
+        scrollDelta = currentCardRect.top - visibleTop;
+      } else if (currentCardRect.bottom > visibleBottom) {
+        scrollDelta = currentCardRect.bottom - visibleBottom;
+      }
+
+      if (scrollDelta === 0) {
+        return;
+      }
 
       isCenteringContextRef.current = true;
       container.scrollTo({
-        top: Math.max(0, nextScrollTop),
+        top: Math.max(0, container.scrollTop + scrollDelta),
         behavior: "auto",
       });
       window.setTimeout(() => {
         isCenteringContextRef.current = false;
-      }, 120);
+      }, 240);
     });
   };
 
@@ -2491,8 +2521,10 @@ function DatasetWorkspace({
     return () => window.removeEventListener("keydown", onKeyDown);
   });
 
-  useEffect(() => {
-    centerActiveContextCard();
+  useLayoutEffect(() => {
+    keepActiveContextCardVisible();
+    const verifyTimer = window.setTimeout(keepActiveContextCardVisible, 80);
+    return () => window.clearTimeout(verifyTimer);
   }, [currentRow?.rowId, threadRows.length]);
 
   useEffect(
@@ -2605,6 +2637,7 @@ function DatasetWorkspace({
             return (
               <ContextMessageCard
                 key={row.rowId}
+                cardRef={isCurrent ? activeContextCardRef : undefined}
                 row={row}
                 isCurrent={isCurrent}
                 isResponseTo={annotation.responseToId === row.rowId}
@@ -2893,6 +2926,7 @@ function DatasetWorkspace({
 }
 
 function ContextMessageCard({
+  cardRef,
   row,
   isCurrent = false,
   isResponseTo,
@@ -2900,6 +2934,7 @@ function ContextMessageCard({
   onJump,
   onResponseTo,
 }: {
+  cardRef?: RefObject<HTMLElement | null>;
   row: ChatRow;
   isCurrent?: boolean;
   isResponseTo: boolean;
@@ -2910,6 +2945,7 @@ function ContextMessageCard({
   return (
     <article
       className={`contextCard ${isCurrent ? "current" : ""}`}
+      ref={cardRef}
       data-current-context={isCurrent ? "true" : undefined}
       data-context-row-id={row.rowId}
     >
