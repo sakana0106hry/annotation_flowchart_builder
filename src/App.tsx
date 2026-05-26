@@ -111,12 +111,14 @@ interface ChatAnnotation {
   selections: StepSelections;
   responseToId: string;
   note: string;
+  reviewNeeded: boolean;
 }
 
 const emptyChatAnnotation: ChatAnnotation = {
   selections: {},
   responseToId: "",
   note: "",
+  reviewNeeded: false,
 };
 
 export default function App() {
@@ -735,6 +737,7 @@ export default function App() {
           next[row.rowId] = {
             ...emptyChatAnnotation,
             note: row.original.annotation_notes ?? "",
+            reviewNeeded: isTruthy(row.original.review_needed),
           };
         });
         return next;
@@ -770,6 +773,16 @@ export default function App() {
 
   const exportAnnotatedChatCsv = () => {
     if (chatRows.length === 0) {
+      return;
+    }
+
+    const warnings = buildExportWarnings(chatRows, chatAnnotations, ruleSet);
+    if (
+      warnings.length > 0 &&
+      !window.confirm(
+        `確認が必要な項目があります。\n\n${warnings.join("\n")}\n\nこのままCSVを書き出しますか？`,
+      )
+    ) {
       return;
     }
 
@@ -2383,6 +2396,9 @@ function DatasetWorkspace({
 }) {
   const [expandedRowId, setExpandedRowId] = useState("");
   const [activeStepSection, setActiveStepSection] = useState("");
+  const [showIncompleteRowsOnly, setShowIncompleteRowsOnly] = useState(false);
+  const [showIncompleteSectionsOnly, setShowIncompleteSectionsOnly] =
+    useState(false);
   const [searchResultsHeight, setSearchResultsHeight] = useState(
     SEARCH_RESULTS_DEFAULT_HEIGHT,
   );
@@ -2401,12 +2417,6 @@ function DatasetWorkspace({
     [annotation.selections, ruleSet],
   );
   const stepSections = useMemo(() => buildStepSections(ruleSet.steps), [ruleSet.steps]);
-  const activeSectionKey =
-    stepSections.find((section) => section.name === activeStepSection)?.name ??
-    stepSections[0]?.name ??
-    "";
-  const activeSectionSteps =
-    stepSections.find((section) => section.name === activeSectionKey)?.steps ?? [];
   const sectionProgress = useMemo(
     () =>
       stepSections.map((section) => {
@@ -2425,15 +2435,53 @@ function DatasetWorkspace({
       }),
     [annotation.selections, stepSections],
   );
+  const displayedSectionProgress = useMemo(() => {
+    if (!showIncompleteSectionsOnly) {
+      return sectionProgress;
+    }
+
+    const incompleteSections = sectionProgress.filter(
+      (section) => !section.isComplete,
+    );
+    return incompleteSections.length > 0 ? incompleteSections : sectionProgress;
+  }, [sectionProgress, showIncompleteSectionsOnly]);
+  const activeSectionKey =
+    displayedSectionProgress.find((section) => section.name === activeStepSection)
+      ?.name ??
+    displayedSectionProgress[0]?.name ??
+    "";
+  const activeSectionSteps =
+    displayedSectionProgress.find((section) => section.name === activeSectionKey)
+      ?.steps ?? [];
+  const completedCount = rows.filter((row) =>
+    isAnnotationComplete(
+      ruleSet,
+      (annotations[row.rowId] ?? emptyChatAnnotation).selections,
+    ),
+  ).length;
+  const incompleteRows = rows.filter(
+    (row) =>
+      !isAnnotationComplete(
+        ruleSet,
+        (annotations[row.rowId] ?? emptyChatAnnotation).selections,
+      ),
+  );
+  const scopedRows =
+    showIncompleteRowsOnly && incompleteRows.length > 0 ? incompleteRows : rows;
+  const scopedCurrentIndex = scopedRows.findIndex(
+    (row) => row.rowId === currentRow?.rowId,
+  );
 
   useEffect(() => {
     if (
-      stepSections.length > 0 &&
-      !stepSections.some((section) => section.name === activeStepSection)
+      displayedSectionProgress.length > 0 &&
+      !displayedSectionProgress.some(
+        (section) => section.name === activeStepSection,
+      )
     ) {
-      setActiveStepSection(stepSections[0].name);
+      setActiveStepSection(displayedSectionProgress[0].name);
     }
-  }, [activeStepSection, stepSections]);
+  }, [activeStepSection, displayedSectionProgress]);
 
   const threadRows = useMemo(() => {
     if (!currentRow) {
@@ -2487,11 +2535,6 @@ function DatasetWorkspace({
     ? responsePinIds.includes(currentRow.rowId)
     : false;
   const expandedRow = rows.find((row) => row.rowId === expandedRowId);
-  const completedCount = rows.filter((row) => {
-    const item = annotations[row.rowId] ?? emptyChatAnnotation;
-    const itemResult = deriveAnnotationResult(ruleSet, item.selections);
-    return itemResult.finalTags.length > 0 || item.note.trim();
-  }).length;
 
   const keepActiveContextCardVisible = (forceCenter = false) => {
     const container = contextListRef.current;
@@ -2621,14 +2664,12 @@ function DatasetWorkspace({
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      const target = event.target;
-      const isTyping =
-        target instanceof HTMLInputElement ||
-        target instanceof HTMLTextAreaElement ||
-        target instanceof HTMLSelectElement ||
-        (target instanceof HTMLElement && target.isContentEditable);
-
-      if (isTyping || event.altKey || event.ctrlKey || event.metaKey) {
+      if (
+        isTypingTarget(event.target) ||
+        event.altKey ||
+        event.ctrlKey ||
+        event.metaKey
+      ) {
         return;
       }
 
@@ -2638,12 +2679,14 @@ function DatasetWorkspace({
 
       if (event.key === "ArrowLeft") {
         event.preventDefault();
-        moveToIndex(currentIndex - 1);
+        moveToScopedIndex(Math.max(0, scopedCurrentIndex - 1));
       }
 
       if (event.key === "ArrowRight") {
         event.preventDefault();
-        moveToIndex(currentIndex + 1);
+        moveToScopedIndex(
+          Math.min(scopedRows.length - 1, scopedCurrentIndex + 1),
+        );
       }
 
       if (event.key === "ArrowUp" || event.key === "ArrowDown") {
@@ -2732,12 +2775,51 @@ function DatasetWorkspace({
     );
   };
 
-  const moveToIndex = (nextIndex: number) => {
-    const nextRow = rows[nextIndex];
+  const moveToScopedIndex = (nextIndex: number) => {
+    const nextRow = scopedRows[nextIndex];
     if (nextRow) {
       onActiveRowChange(nextRow.rowId);
     }
   };
+
+  const moveToNextIncomplete = () => {
+    if (incompleteRows.length === 0) {
+      window.alert("未完了の行はありません。");
+      return;
+    }
+
+    const startIndex = Math.max(0, currentIndex);
+    for (let offset = 1; offset <= rows.length; offset += 1) {
+      const nextRow = rows[(startIndex + offset) % rows.length];
+      if (
+        nextRow &&
+        !isAnnotationComplete(
+          ruleSet,
+          (annotations[nextRow.rowId] ?? emptyChatAnnotation).selections,
+        )
+      ) {
+        onActiveRowChange(nextRow.rowId);
+        return;
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (showIncompleteRowsOnly && incompleteRows.length === 0) {
+      setShowIncompleteRowsOnly(false);
+      return;
+    }
+
+    if (!showIncompleteRowsOnly || incompleteRows.length === 0 || !currentRow) {
+      return;
+    }
+
+    if (incompleteRows.some((row) => row.rowId === currentRow.rowId)) {
+      return;
+    }
+
+    onActiveRowChange(incompleteRows[0].rowId);
+  }, [currentRow, incompleteRows, onActiveRowChange, showIncompleteRowsOnly]);
 
   const tagsForRow = (row: ChatRow): string[] => {
     const item = annotations[row.rowId] ?? emptyChatAnnotation;
@@ -2875,11 +2957,34 @@ function DatasetWorkspace({
         <div className="targetTopLine">
           <div>
             <p className="eyebrow">
-              {currentIndex + 1} / {rows.length} ・ 注釈済み {completedCount}
+              {showIncompleteRowsOnly
+                ? `未完了 ${Math.max(0, scopedCurrentIndex) + 1} / ${scopedRows.length}`
+                : `${currentIndex + 1} / ${rows.length}`}{" "}
+              ・ 完了 {completedCount} / {rows.length}
             </p>
             <h2>{currentRow.speaker || currentRow.authorName || "話者不明"}</h2>
           </div>
           <div className="navButtons">
+            <button
+              className={`iconTextButton compact ${showIncompleteRowsOnly ? "activeSoft" : ""}`}
+              type="button"
+              disabled={incompleteRows.length === 0}
+              title="未完了の行だけを移動対象にする"
+              onClick={() => setShowIncompleteRowsOnly((current) => !current)}
+            >
+              <ListChecks size={16} />
+              未完了のみ
+            </button>
+            <button
+              className="iconTextButton compact"
+              type="button"
+              disabled={incompleteRows.length === 0}
+              title="次の未完了行へ"
+              onClick={moveToNextIncomplete}
+            >
+              <ChevronRight size={16} />
+              次の未完了
+            </button>
             <button
               className={`iconTextButton compact ${isCurrentPinned ? "activeSoft" : ""}`}
               type="button"
@@ -2893,8 +2998,8 @@ function DatasetWorkspace({
               className="iconButton"
               type="button"
               title="前へ"
-              disabled={currentIndex <= 0}
-              onClick={() => moveToIndex(currentIndex - 1)}
+              disabled={scopedCurrentIndex <= 0}
+              onClick={() => moveToScopedIndex(scopedCurrentIndex - 1)}
             >
               <ChevronLeft size={18} />
             </button>
@@ -2902,8 +3007,8 @@ function DatasetWorkspace({
               className="iconButton"
               type="button"
               title="次へ"
-              disabled={currentIndex >= rows.length - 1}
-              onClick={() => moveToIndex(currentIndex + 1)}
+              disabled={scopedCurrentIndex >= scopedRows.length - 1}
+              onClick={() => moveToScopedIndex(scopedCurrentIndex + 1)}
             >
               <ChevronRight size={18} />
             </button>
@@ -2919,9 +3024,9 @@ function DatasetWorkspace({
           className="rowScrubber"
           type="range"
           min="0"
-          max={Math.max(0, rows.length - 1)}
-          value={Math.max(0, currentIndex)}
-          onChange={(event) => moveToIndex(Number(event.target.value))}
+          max={Math.max(0, scopedRows.length - 1)}
+          value={Math.max(0, scopedCurrentIndex)}
+          onChange={(event) => moveToScopedIndex(Number(event.target.value))}
         />
 
         <div className="messageMetaGrid">
@@ -3031,9 +3136,29 @@ function DatasetWorkspace({
           </button>
         </div>
 
+        <div className="annotationFilterLine">
+          <button
+            className={`iconTextButton compact ${
+              showIncompleteSectionsOnly ? "activeSoft" : ""
+            }`}
+            type="button"
+            onClick={() => setShowIncompleteSectionsOnly((current) => !current)}
+          >
+            <ListChecks size={15} />
+            未完了系統のみ
+          </button>
+          <span>
+            {sectionProgress.length === 0
+              ? "判定なし"
+              : `${
+                  sectionProgress.filter((section) => section.isComplete).length
+                }/${sectionProgress.length} 系統完了`}
+          </span>
+        </div>
+
         {sectionProgress.length > 0 && (
           <div className="sectionBadgeBar" aria-label="判定系統">
-            {sectionProgress.map((section) => {
+            {displayedSectionProgress.map((section) => {
               const isSelected = section.name === activeSectionKey;
               const className = [
                 "sectionBadgeButton",
@@ -3132,6 +3257,22 @@ function DatasetWorkspace({
             }
           />
         </label>
+
+        <button
+          className={`iconTextButton compact reviewButton ${
+            annotation.reviewNeeded ? "activeSoft" : ""
+          }`}
+          type="button"
+          onClick={() =>
+            updateCurrentAnnotation((current) => ({
+              ...current,
+              reviewNeeded: !current.reviewNeeded,
+            }))
+          }
+        >
+          <ShieldCheck size={15} />
+          {annotation.reviewNeeded ? "要確認中" : "要確認"}
+        </button>
 
         <div className="resultBox datasetResult">
           <div className="resultHeader">
@@ -3619,6 +3760,7 @@ function buildAnnotatedChatCsv(
     "Level1",
     "breakdown",
     "annotation_notes",
+    "review_needed",
     "final_tags",
     "raw_tags",
     "response_to_row_id",
@@ -3636,6 +3778,7 @@ function buildAnnotatedChatCsv(
     values.Level1 = result.finalTags.join("|");
     values.breakdown = buildAnnotationBreakdown(result);
     values.annotation_notes = annotation.note;
+    values.review_needed = annotation.reviewNeeded ? "1" : "0";
     values.final_tags = result.finalTags.join("|");
     values.raw_tags = result.rawTags.join("|");
     values.response_to_row_id = annotation.responseToId;
@@ -3645,6 +3788,7 @@ function buildAnnotatedChatCsv(
       finalTags: result.finalTags,
       rawTags: result.rawTags,
       responseTo: annotation.responseToId || null,
+      reviewNeeded: annotation.reviewNeeded,
     });
 
     return outputHeaders.map((header) => csvCell(values[header] ?? "")).join(",");
@@ -3691,6 +3835,55 @@ function buildStepSections(steps: RuleStep[]): StepSectionGroup[] {
 
 function isStepCompleted(step: RuleStep, selections: StepSelections): boolean {
   return step.options.length > 0 && (selections[step.id] ?? []).length > 0;
+}
+
+function isAnnotationComplete(
+  ruleSet: AnnotationRuleSet,
+  selections: StepSelections,
+): boolean {
+  const requiredSteps = ruleSet.steps.filter((step) => step.options.length > 0);
+  return requiredSteps.every((step) => isStepCompleted(step, selections));
+}
+
+function buildExportWarnings(
+  rows: ChatRow[],
+  annotations: Record<string, ChatAnnotation>,
+  ruleSet: AnnotationRuleSet,
+): string[] {
+  const incompleteCount = rows.filter((row) => {
+    const annotation = annotations[row.rowId] ?? emptyChatAnnotation;
+    return !isAnnotationComplete(ruleSet, annotation.selections);
+  }).length;
+  const reviewCount = rows.filter(
+    (row) => (annotations[row.rowId] ?? emptyChatAnnotation).reviewNeeded,
+  ).length;
+  const missingResponseCount = rows.filter((row) => {
+    const annotation = annotations[row.rowId] ?? emptyChatAnnotation;
+    const result = deriveAnnotationResult(ruleSet, annotation.selections);
+    return result.finalTags.some(isResponseLikeTag) && !annotation.responseToId;
+  }).length;
+
+  return [
+    incompleteCount > 0 ? `未完了の行: ${incompleteCount}件` : "",
+    reviewCount > 0 ? `要確認の行: ${reviewCount}件` : "",
+    missingResponseCount > 0
+      ? `応答先が未指定の可能性がある行: ${missingResponseCount}件`
+      : "",
+  ].filter(Boolean);
+}
+
+function isTruthy(value: string | undefined): boolean {
+  const normalized = value?.trim().toLowerCase();
+  return normalized === "1" || normalized === "true" || normalized === "yes";
+}
+
+function isTypingTarget(target: EventTarget | null): boolean {
+  return (
+    target instanceof HTMLInputElement ||
+    target instanceof HTMLTextAreaElement ||
+    target instanceof HTMLSelectElement ||
+    (target instanceof HTMLElement && target.isContentEditable)
+  );
 }
 
 function csvCell(value: string): string {

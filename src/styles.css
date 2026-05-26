@@ -95,6 +95,7 @@ button {
 .exportButtons,
 .stageToolbar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
 }
@@ -1769,6 +1770,22 @@ select:focus {
   margin-top: 10px;
 }
 
+.annotationFilterLine {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.annotationFilterLine span {
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
 .sectionBadgeBar {
   flex: 0 0 auto;
   display: flex;
@@ -1845,6 +1862,11 @@ select:focus {
 
 .compactChoices .choice {
   padding: 7px;
+}
+
+.reviewButton {
+  width: 100%;
+  margin-top: 10px;
 }
 
 .datasetResult {
