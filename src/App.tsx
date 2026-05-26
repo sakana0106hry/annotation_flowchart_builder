@@ -2164,7 +2164,9 @@ function FlowCanvas({
                         className={
                           row.option.isGeneral
                             ? "tagNoteRow general"
-                            : "tagNoteRow"
+                            : row.isNone
+                              ? "tagNoteRow none"
+                              : "tagNoteRow"
                         }
                         x={node.x + NODE_INSET_X + TAG_NOTE_PADDING_X}
                         y={tagNoteY + row.y}
@@ -2176,7 +2178,7 @@ function FlowCanvas({
                       />
                       <WrappedSvgText
                         className="tagNoteText"
-                        text={`${row.option.label}: ${row.option.tag}`}
+                        text={row.text}
                         x={node.x + NODE_INSET_X + TAG_NOTE_PADDING_X + 10}
                         y={tagNoteY + row.y + 18}
                         maxChars={TAG_NOTE_MAX_CHARS}
@@ -3296,7 +3298,9 @@ const NODE_PROMPT_LINE_HEIGHT = 18;
 const NODE_GUIDANCE_LINE_HEIGHT = 16;
 
 interface TagRowLayout {
-  option: RuleOption & { tag: string };
+  option: RuleOption;
+  text: string;
+  isNone: boolean;
   y: number;
   rowHeight: number;
 }
@@ -3305,9 +3309,9 @@ function buildTagRows(step: RuleStep, labelMaxChars: number): TagRowLayout[] {
   let offsetY = TAG_NOTE_PADDING_Y + TAG_NOTE_HEADER_HEIGHT + TAG_ROW_GAP;
 
   return step.options
-    .filter((option): option is RuleOption & { tag: string } => Boolean(option.tag))
     .map((option) => {
-      const lines = wrapText(`${option.label}: ${option.tag}`, labelMaxChars);
+      const text = `${option.label}: ${option.tag || "付与なし"}`;
+      const lines = wrapText(text, labelMaxChars);
       const rowHeight = Math.max(
         TAG_NOTE_MIN_ROW_HEIGHT,
         lines.length * TAG_NOTE_LINE_HEIGHT + 12,
@@ -3318,6 +3322,8 @@ function buildTagRows(step: RuleStep, labelMaxChars: number): TagRowLayout[] {
 
       return {
         option,
+        text,
+        isNone: !option.tag,
         y,
         rowHeight,
       };

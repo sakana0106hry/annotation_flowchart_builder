@@ -96,8 +96,7 @@ export function buildMermaid(ruleSet: AnnotationRuleSet): string {
   ruleSet.steps.forEach((step, index) => {
     const stepId = mermaidId(step.id);
     const tagLines = step.options
-      .filter((option) => option.tag)
-      .map((option) => `${option.label}: ${option.tag}`);
+      .map((option) => `${option.label}: ${option.tag || "付与なし"}`);
     const nodeText = [
       step.title,
       step.prompt,
