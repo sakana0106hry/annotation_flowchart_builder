@@ -1818,3 +1818,46 @@ select:focus {
     min-width: 760px;
   }
 }
+
+.datasetAppShell {
+  height: 100vh;
+  min-height: 100vh;
+  overflow: hidden;
+}
+
+.datasetAppShell .topbar {
+  flex: 0 0 auto;
+}
+
+.datasetAppShell .datasetWorkspace {
+  flex: 1 1 auto;
+  height: auto;
+  min-height: 0;
+  overflow: hidden;
+  grid-template-columns: minmax(290px, 0.82fr) minmax(480px, 1.36fr) minmax(340px, 0.96fr);
+}
+
+.datasetAppShell .contextPanel,
+.datasetAppShell .targetPanel,
+.datasetAppShell .datasetAnnotationPanel {
+  min-height: 0;
+  max-height: none;
+  overflow: hidden;
+}
+
+.datasetAppShell .datasetAnnotationPanel {
+  grid-column: auto;
+}
+
+.datasetAppShell .primaryContextList {
+  overscroll-behavior: contain;
+}
+
+.datasetAppShell .targetPanel,
+.datasetAppShell .datasetAnnotationPanel,
+.datasetAppShell .targetMessage,
+.datasetAppShell .centerCardList,
+.datasetAppShell .datasetSteps,
+.datasetAppShell .messagePreviewBody {
+  overscroll-behavior: none;
+}

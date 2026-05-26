@@ -1,5 +1,11 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import type { Dispatch, DragEvent, RefObject, SetStateAction } from "react";
+import type {
+  Dispatch,
+  DragEvent,
+  RefObject,
+  SetStateAction,
+  WheelEvent as ReactWheelEvent,
+} from "react";
 import {
   CheckCircle2,
   ChevronLeft,
@@ -750,7 +756,7 @@ export default function App() {
   };
 
   return (
-    <div className="appShell">
+    <div className={appMode === "dataset" ? "appShell datasetAppShell" : "appShell"}>
       <header className="topbar">
         <div className="brand">
           <Workflow size={24} aria-hidden="true" />
@@ -2294,6 +2300,7 @@ function DatasetWorkspace({
   onResponsePinIdsChange: Dispatch<SetStateAction<string[]>>;
 }) {
   const [expandedRowId, setExpandedRowId] = useState("");
+  const contextPanelRef = useRef<HTMLElement | null>(null);
   const contextListRef = useRef<HTMLDivElement | null>(null);
   const activeContextCardRef = useRef<HTMLElement | null>(null);
   const activeContextScrollFrameRef = useRef<number | null>(null);
@@ -2476,6 +2483,27 @@ function DatasetWorkspace({
     });
   };
 
+  const scrollContextList = (deltaY: number) => {
+    const container = contextListRef.current;
+    if (!container) {
+      return;
+    }
+
+    container.scrollTop += deltaY;
+    scheduleContextCenterSync();
+  };
+
+  const handleContextWheel = (event: ReactWheelEvent<HTMLElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    scrollContextList(normalizeWheelDelta(event));
+  };
+
+  const stopDatasetWheel = (event: ReactWheelEvent<HTMLElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+  };
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       const target = event.target;
@@ -2526,6 +2554,29 @@ function DatasetWorkspace({
     const verifyTimer = window.setTimeout(keepActiveContextCardVisible, 80);
     return () => window.clearTimeout(verifyTimer);
   }, [currentRow?.rowId, threadRows.length]);
+
+  useEffect(() => {
+    const preventWheelOutsideContext = (event: WheelEvent) => {
+      const target = event.target;
+      if (
+        target instanceof Node &&
+        contextPanelRef.current?.contains(target)
+      ) {
+        return;
+      }
+
+      event.preventDefault();
+    };
+
+    document.addEventListener("wheel", preventWheelOutsideContext, {
+      capture: true,
+      passive: false,
+    });
+    return () =>
+      document.removeEventListener("wheel", preventWheelOutsideContext, {
+        capture: true,
+      });
+  }, []);
 
   useEffect(
     () => () => {
@@ -2593,7 +2644,12 @@ function DatasetWorkspace({
 
   return (
     <>
-      <aside className="panel contextPanel" aria-label="文脈">
+      <aside
+        className="panel contextPanel"
+        ref={contextPanelRef}
+        aria-label="文脈"
+        onWheel={handleContextWheel}
+      >
         <div className="panelHeader datasetHeader">
           <div>
             <h2>文脈</h2>
@@ -2677,7 +2733,11 @@ function DatasetWorkspace({
         </div>
       </aside>
 
-      <section className="panel targetPanel" aria-label="対象チャット">
+      <section
+        className="panel targetPanel"
+        aria-label="対象チャット"
+        onWheel={stopDatasetWheel}
+      >
         <div className="targetTopLine">
           <div>
             <p className="eyebrow">
@@ -2817,7 +2877,11 @@ function DatasetWorkspace({
         )}
       </section>
 
-      <aside className="panel datasetAnnotationPanel" aria-label="CSV注釈">
+      <aside
+        className="panel datasetAnnotationPanel"
+        aria-label="CSV注釈"
+        onWheel={stopDatasetWheel}
+      >
         <div className="panelHeader datasetHeader">
           <div>
             <h2>注釈</h2>
@@ -3080,6 +3144,18 @@ function MessagePreviewModal({
       </article>
     </div>
   );
+}
+
+function normalizeWheelDelta(event: ReactWheelEvent<HTMLElement>): number {
+  if (event.deltaMode === WheelEvent.DOM_DELTA_LINE) {
+    return event.deltaY * 36;
+  }
+
+  if (event.deltaMode === WheelEvent.DOM_DELTA_PAGE) {
+    return event.deltaY * window.innerHeight;
+  }
+
+  return event.deltaY;
 }
 
 function WrappedSvgText({
