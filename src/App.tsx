@@ -2089,6 +2089,12 @@ function FlowCanvas({
                 />
               )}
 
+              {tagRows.length > 0 && (
+                <text className="tagLaneTitle" x={layout.tagX} y={node.y + 24}>
+                  付与タグ
+                </text>
+              )}
+
               {tagRows.map((row) => {
                 const edgeY = node.y + row.edgeY;
                 const tagY = edgeY - TAG_CHIP_HEIGHT / 2;
@@ -2101,8 +2107,8 @@ function FlowCanvas({
                     <path
                       className="tagEdge"
                       d={`M ${node.x + node.width} ${edgeY} H ${tagEdgeEndX}`}
-                      markerEnd="url(#arrow)"
                     />
+                    <circle className="tagEdgeDot" cx={tagEdgeEndX} cy={edgeY} r="3.2" />
                     <rect
                       className="edgeLabelBg"
                       x={edgeLabelX - EDGE_LABEL_PADDING_X}

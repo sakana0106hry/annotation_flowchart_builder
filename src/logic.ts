@@ -91,7 +91,11 @@ export function setSelection(
 }
 
 export function buildMermaid(ruleSet: AnnotationRuleSet): string {
-  const lines = ["flowchart TD"];
+  const lines = [
+    "flowchart TD",
+    "  classDef tagNote fill:#e7f5f1,stroke:#86bfb0,color:#174b45;",
+    "  classDef generalTag fill:#fff2d7,stroke:#d5aa50,color:#5f4710;",
+  ];
 
   ruleSet.steps.forEach((step, index) => {
     const stepId = mermaidId(step.id);
@@ -114,8 +118,9 @@ export function buildMermaid(ruleSet: AnnotationRuleSet): string {
       const tagNodeId = mermaidId(`${step.id}_${option.id}_tag`);
       lines.push(`  ${tagNodeId}["${escapeMermaid(option.tag)}"]`);
       lines.push(
-        `  ${stepId} -- "${escapeMermaid(option.label)}" --> ${tagNodeId}`,
+        `  ${stepId} -. "${escapeMermaid(option.label)}で付与" .- ${tagNodeId}`,
       );
+      lines.push(`  class ${tagNodeId} ${option.isGeneral ? "generalTag" : "tagNote"};`);
     });
   });
 
