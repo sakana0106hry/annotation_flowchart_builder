@@ -38,6 +38,8 @@ import {
   Wand2,
   Workflow,
   X,
+  ZoomIn,
+  ZoomOut,
 } from "lucide-react";
 import {
   buildMermaid,
@@ -79,6 +81,9 @@ type StepTemplate = "process" | "decision" | "multi";
 const SEARCH_RESULTS_DEFAULT_HEIGHT = 150;
 const SEARCH_RESULTS_MIN_HEIGHT = 96;
 const PRIMARY_CONTEXT_MIN_HEIGHT = 220;
+const FLOW_ZOOM_MIN = 0.35;
+const FLOW_ZOOM_MAX = 1.75;
+const FLOW_ZOOM_STEP = 0.15;
 
 const tagFamilies: TagFamily[] = ["社会", "FB", "タスク", "感情"];
 
@@ -120,6 +125,7 @@ export default function App() {
   const [selectedStepId, setSelectedStepId] = useState("");
   const [selections, setSelections] = useState<StepSelections>({});
   const [centerView, setCenterView] = useState<CenterView>("flow");
+  const [flowZoom, setFlowZoom] = useState(0.8);
   const [appMode, setAppMode] = useState<AppMode>("builder");
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [menuView, setMenuView] = useState<MenuView>("sets");
@@ -177,6 +183,10 @@ export default function App() {
 
   const selectedStep =
     ruleSet.steps.find((step) => step.id === selectedStepId) ?? ruleSet.steps[0];
+
+  const updateFlowZoom = (delta: number) => {
+    setFlowZoom((current) => clampZoom(current + delta));
+  };
 
   const updateRuleMeta = (patch: Partial<AnnotationRuleSet>) => {
     setRuleSet((current) => ({ ...current, ...patch }));
@@ -925,6 +935,39 @@ export default function App() {
                 </div>
 
                 <div className="exportButtons">
+                  {centerView === "flow" && (
+                    <div className="zoomControls" aria-label="フロー倍率">
+                      <button
+                        className="iconButton"
+                        type="button"
+                        onClick={() => updateFlowZoom(-FLOW_ZOOM_STEP)}
+                        disabled={flowZoom <= FLOW_ZOOM_MIN}
+                        aria-label="縮小"
+                        title="縮小"
+                      >
+                        <ZoomOut size={17} />
+                      </button>
+                      <button
+                        className="zoomValue"
+                        type="button"
+                        onClick={() => setFlowZoom(0.8)}
+                        aria-label="倍率をリセット"
+                        title="倍率をリセット"
+                      >
+                        {Math.round(flowZoom * 100)}%
+                      </button>
+                      <button
+                        className="iconButton"
+                        type="button"
+                        onClick={() => updateFlowZoom(FLOW_ZOOM_STEP)}
+                        disabled={flowZoom >= FLOW_ZOOM_MAX}
+                        aria-label="拡大"
+                        title="拡大"
+                      >
+                        <ZoomIn size={17} />
+                      </button>
+                    </div>
+                  )}
                   <button className="iconTextButton secondary" type="button" onClick={exportSvg}>
                     <Download size={17} />
                     SVG
@@ -950,7 +993,9 @@ export default function App() {
                 </div>
               </div>
 
-              {centerView === "flow" && <FlowCanvas ruleSet={ruleSet} svgRef={svgRef} />}
+              {centerView === "flow" && (
+                <FlowCanvas ruleSet={ruleSet} svgRef={svgRef} zoom={flowZoom} />
+              )}
               {centerView === "mermaid" && (
                 <pre className="codePane">{buildMermaid(ruleSet)}</pre>
               )}
@@ -1970,17 +2015,23 @@ function RuleEditor({
 function FlowCanvas({
   ruleSet,
   svgRef,
+  zoom,
 }: {
   ruleSet: AnnotationRuleSet;
   svgRef: RefObject<SVGSVGElement | null>;
+  zoom: number;
 }) {
   const layout = useMemo(() => buildLayout(ruleSet), [ruleSet]);
+  const scaledWidth = Math.round(layout.width * zoom);
+  const scaledHeight = Math.round(layout.height * zoom);
 
   return (
     <div className="flowViewport">
       <svg
         ref={svgRef}
         className="flowSvg"
+        width={scaledWidth}
+        height={scaledHeight}
         viewBox={`0 0 ${layout.width} ${layout.height}`}
         role="img"
         aria-label={ruleSet.title}
@@ -3826,6 +3877,11 @@ function makeUniqueId(prefix: string, usedIds: string[]): string {
   }
 
   return `${prefix}_${index}`;
+}
+
+function clampZoom(value: number): number {
+  const clamped = Math.min(FLOW_ZOOM_MAX, Math.max(FLOW_ZOOM_MIN, value));
+  return Number(clamped.toFixed(2));
 }
 
 function getActiveRuleSet(library: RuleSetLibrary): AnnotationRuleSet {
