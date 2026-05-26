@@ -2312,8 +2312,6 @@ function DatasetWorkspace({
   const contextListRef = useRef<HTMLDivElement | null>(null);
   const activeContextCardRef = useRef<HTMLElement | null>(null);
   const activeContextScrollFrameRef = useRef<number | null>(null);
-  const contextScrollFrameRef = useRef<number | null>(null);
-  const isCenteringContextRef = useRef(false);
   const currentIndex = rows.findIndex((row) => row.rowId === activeRowId);
   const currentRow = currentIndex >= 0 ? rows[currentIndex] : rows[0];
   const annotation = currentRow
@@ -2383,7 +2381,7 @@ function DatasetWorkspace({
     return itemResult.finalTags.length > 0 || item.note.trim();
   }).length;
 
-  const keepActiveContextCardVisible = () => {
+  const keepActiveContextCardVisible = (forceCenter = false) => {
     const container = contextListRef.current;
     const referencedCard = activeContextCardRef.current;
     const currentCard =
@@ -2394,11 +2392,6 @@ function DatasetWorkspace({
         : container?.querySelector<HTMLElement>('[data-current-context="true"]');
     if (!container || !currentCard) {
       return;
-    }
-
-    if (contextScrollFrameRef.current != null) {
-      window.cancelAnimationFrame(contextScrollFrameRef.current);
-      contextScrollFrameRef.current = null;
     }
 
     if (activeContextScrollFrameRef.current != null) {
@@ -2420,7 +2413,12 @@ function DatasetWorkspace({
       const visibleHeight = Math.max(0, visibleBottom - visibleTop);
       let scrollDelta = 0;
 
-      if (currentCardRect.height > visibleHeight) {
+      if (forceCenter) {
+        scrollDelta =
+          currentCardRect.top +
+          currentCardRect.height / 2 -
+          (visibleTop + visibleHeight / 2);
+      } else if (currentCardRect.height > visibleHeight) {
         scrollDelta = currentCardRect.top - visibleTop;
       } else if (currentCardRect.top < visibleTop) {
         scrollDelta = currentCardRect.top - visibleTop;
@@ -2432,62 +2430,10 @@ function DatasetWorkspace({
         return;
       }
 
-      isCenteringContextRef.current = true;
       container.scrollTo({
         top: Math.max(0, container.scrollTop + scrollDelta),
         behavior: "auto",
       });
-      window.setTimeout(() => {
-        isCenteringContextRef.current = false;
-      }, 240);
-    });
-  };
-
-  const syncActiveRowFromContextCenter = () => {
-    const container = contextListRef.current;
-    if (!container) {
-      return;
-    }
-
-    const cards = Array.from(
-      container.querySelectorAll<HTMLElement>("[data-context-row-id]"),
-    );
-    if (cards.length === 0) {
-      return;
-    }
-
-    const containerRect = container.getBoundingClientRect();
-    const centerY = containerRect.top + containerRect.height / 2;
-    const nearest = cards.reduce<HTMLElement | null>((best, card) => {
-      if (!best) {
-        return card;
-      }
-
-      const cardRect = card.getBoundingClientRect();
-      const bestRect = best.getBoundingClientRect();
-      const cardDistance = Math.abs(cardRect.top + cardRect.height / 2 - centerY);
-      const bestDistance = Math.abs(bestRect.top + bestRect.height / 2 - centerY);
-      return cardDistance < bestDistance ? card : best;
-    }, null);
-    const nextRowId = nearest?.dataset.contextRowId;
-
-    if (nextRowId && nextRowId !== currentRow?.rowId) {
-      onActiveRowChange(nextRowId);
-    }
-  };
-
-  const scheduleContextCenterSync = () => {
-    if (isCenteringContextRef.current) {
-      return;
-    }
-
-    if (contextScrollFrameRef.current != null) {
-      window.cancelAnimationFrame(contextScrollFrameRef.current);
-    }
-
-    contextScrollFrameRef.current = window.requestAnimationFrame(() => {
-      contextScrollFrameRef.current = null;
-      syncActiveRowFromContextCenter();
     });
   };
 
@@ -2498,7 +2444,6 @@ function DatasetWorkspace({
     }
 
     container.scrollTop += deltaY;
-    scheduleContextCenterSync();
   };
 
   const handleContextWheel = (event: ReactWheelEvent<HTMLElement>) => {
@@ -2641,10 +2586,6 @@ function DatasetWorkspace({
       if (activeContextScrollFrameRef.current != null) {
         window.cancelAnimationFrame(activeContextScrollFrameRef.current);
       }
-
-      if (contextScrollFrameRef.current != null) {
-        window.cancelAnimationFrame(contextScrollFrameRef.current);
-      }
     },
     [],
   );
@@ -2731,6 +2672,14 @@ function DatasetWorkspace({
               />
             </div>
           </label>
+          <button
+            className="iconTextButton compact contextReturnButton"
+            type="button"
+            onClick={() => keepActiveContextCardVisible(true)}
+          >
+            <RotateCcw size={15} />
+            作業中へ戻る
+          </button>
         </div>
 
         <div
@@ -2738,7 +2687,6 @@ function DatasetWorkspace({
           ref={contextListRef}
           tabIndex={0}
           aria-label="文脈タイムライン。上下キーでスクロールできます。"
-          onScroll={scheduleContextCenterSync}
         >
           <div className="contextListHeader">
             <h3>同じスレッドの全件</h3>
