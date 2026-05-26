@@ -2295,6 +2295,7 @@ function DatasetWorkspace({
 }) {
   const [expandedRowId, setExpandedRowId] = useState("");
   const contextListRef = useRef<HTMLDivElement | null>(null);
+  const activeContextScrollFrameRef = useRef<number | null>(null);
   const contextScrollFrameRef = useRef<number | null>(null);
   const isCenteringContextRef = useRef(false);
   const currentIndex = rows.findIndex((row) => row.rowId === activeRowId);
@@ -2375,16 +2376,25 @@ function DatasetWorkspace({
       return;
     }
 
-    requestAnimationFrame(() => {
+    if (activeContextScrollFrameRef.current != null) {
+      window.cancelAnimationFrame(activeContextScrollFrameRef.current);
+    }
+
+    activeContextScrollFrameRef.current = window.requestAnimationFrame(() => {
+      activeContextScrollFrameRef.current = null;
       const nextScrollTop =
         currentCard.offsetTop +
         currentCard.offsetHeight / 2 -
         container.clientHeight / 2;
+
       isCenteringContextRef.current = true;
-      container.scrollTop = Math.max(0, nextScrollTop);
+      container.scrollTo({
+        top: Math.max(0, nextScrollTop),
+        behavior: "auto",
+      });
       window.setTimeout(() => {
         isCenteringContextRef.current = false;
-      }, 80);
+      }, 120);
     });
   };
 
@@ -2487,6 +2497,10 @@ function DatasetWorkspace({
 
   useEffect(
     () => () => {
+      if (activeContextScrollFrameRef.current != null) {
+        window.cancelAnimationFrame(activeContextScrollFrameRef.current);
+      }
+
       if (contextScrollFrameRef.current != null) {
         window.cancelAnimationFrame(contextScrollFrameRef.current);
       }
@@ -2574,7 +2588,7 @@ function DatasetWorkspace({
         </div>
 
         <div
-          className="contextList"
+          className="contextList primaryContextList"
           ref={contextListRef}
           tabIndex={0}
           aria-label="文脈タイムライン。上下キーでスクロールできます。"

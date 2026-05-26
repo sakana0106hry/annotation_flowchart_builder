@@ -1305,7 +1305,7 @@ select:focus {
   pointer-events: none;
 }
 
-.contextList:first-of-type {
+.primaryContextList {
   flex: 1 1 auto;
 }
 
