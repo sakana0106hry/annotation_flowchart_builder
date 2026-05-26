@@ -91,37 +91,30 @@ export function setSelection(
 }
 
 export function buildMermaid(ruleSet: AnnotationRuleSet): string {
-  const lines = [
-    "flowchart TD",
-    "  classDef tagNote fill:#e7f5f1,stroke:#86bfb0,color:#174b45;",
-    "  classDef generalTag fill:#fff2d7,stroke:#d5aa50,color:#5f4710;",
-  ];
+  const lines = ["flowchart TD"];
 
   ruleSet.steps.forEach((step, index) => {
     const stepId = mermaidId(step.id);
+    const tagLines = step.options
+      .filter((option) => option.tag)
+      .map((option) => `${option.label}: ${option.tag}`);
+    const nodeText = [
+      step.title,
+      step.prompt,
+      ...(tagLines.length > 0 ? ["付与タグ", ...tagLines] : []),
+    ]
+      .map(escapeMermaid)
+      .join("\\n");
     const shape =
       step.kind === "process"
-        ? `[\"${escapeMermaid(step.title)}\\n${escapeMermaid(step.prompt)}\"]`
-        : `{\"${escapeMermaid(step.title)}\\n${escapeMermaid(step.prompt)}\"}`;
+        ? `[\"${nodeText}\"]`
+        : `{\"${nodeText}\"}`;
 
     lines.push(`  ${stepId}${shape}`);
 
     if (index > 0) {
       lines.push(`  ${mermaidId(ruleSet.steps[index - 1].id)} --> ${stepId}`);
     }
-
-    step.options.forEach((option) => {
-      if (!option.tag) {
-        return;
-      }
-
-      const tagNodeId = mermaidId(`${step.id}_${option.id}_tag`);
-      lines.push(`  ${tagNodeId}["${escapeMermaid(option.tag)}"]`);
-      lines.push(
-        `  ${stepId} -. "${escapeMermaid(option.label)}で付与" .- ${tagNodeId}`,
-      );
-      lines.push(`  class ${tagNodeId} ${option.isGeneral ? "generalTag" : "tagNote"};`);
-    });
   });
 
   return lines.join("\n");

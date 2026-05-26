@@ -2030,13 +2030,21 @@ function FlowCanvas({
           const nodeBadgeWidth = badgeWidth(node.step.badge);
           const nodeBadgeX = node.x + 18;
           const nodeBadgeY = node.y + 18;
-          const tagEdgeEndX = layout.tagX - 18;
-          const edgeLabelX = node.x + node.width + 18;
-          const edgeLabelWidth = getEdgeLabelWidth(node.x, node.width, layout.tagX);
-          const tagRows = buildTagRows(
-            node.step,
-            getEdgeLabelMaxChars(edgeLabelWidth),
-          );
+          const promptLineCount = getPromptLineCount(node.step);
+          const tagRows = buildTagRows(node.step, TAG_NOTE_MAX_CHARS);
+          const tagNoteHeightValue = tagRowsHeight(tagRows);
+          const tagNoteY =
+            node.y +
+            NODE_PROMPT_END_OFFSET +
+            promptLineCount * NODE_PROMPT_LINE_HEIGHT +
+            TAG_NOTE_TOP_GAP;
+          const guidanceY =
+            node.y +
+            NODE_PROMPT_END_OFFSET +
+            promptLineCount * NODE_PROMPT_LINE_HEIGHT +
+            (tagRows.length > 0
+              ? TAG_NOTE_TOP_GAP + tagNoteHeightValue + GUIDANCE_TOP_GAP
+              : GUIDANCE_TOP_GAP);
 
           return (
             <g key={node.step.id}>
@@ -2078,74 +2086,63 @@ function FlowCanvas({
                 maxChars={30}
                 lineHeight={18}
               />
+
+              {tagRows.length > 0 && (
+                <g>
+                  <rect
+                    className="tagNoteBox"
+                    x={node.x + NODE_INSET_X}
+                    y={tagNoteY}
+                    width={node.width - NODE_INSET_X * 2}
+                    height={tagNoteHeightValue}
+                    rx="8"
+                  />
+                  <text
+                    className="tagNoteTitle"
+                    x={node.x + NODE_INSET_X + TAG_NOTE_PADDING_X}
+                    y={tagNoteY + TAG_NOTE_PADDING_Y + 12}
+                  >
+                    付与タグ
+                  </text>
+                  {tagRows.map((row) => (
+                    <g key={row.option.id}>
+                      <rect
+                        className={
+                          row.option.isGeneral
+                            ? "tagNoteRow general"
+                            : "tagNoteRow"
+                        }
+                        x={node.x + NODE_INSET_X + TAG_NOTE_PADDING_X}
+                        y={tagNoteY + row.y}
+                        width={
+                          node.width - NODE_INSET_X * 2 - TAG_NOTE_PADDING_X * 2
+                        }
+                        height={row.rowHeight}
+                        rx="7"
+                      />
+                      <WrappedSvgText
+                        className="tagNoteText"
+                        text={`${row.option.label}: ${row.option.tag}`}
+                        x={node.x + NODE_INSET_X + TAG_NOTE_PADDING_X + 10}
+                        y={tagNoteY + row.y + 18}
+                        maxChars={TAG_NOTE_MAX_CHARS}
+                        lineHeight={TAG_NOTE_LINE_HEIGHT}
+                      />
+                    </g>
+                  ))}
+                </g>
+              )}
+
               {node.step.guidance && (
                 <WrappedSvgText
                   className="nodeGuidance"
                   text={node.step.guidance}
                   x={node.x + 22}
-                  y={node.y + node.height - 22}
+                  y={guidanceY}
                   maxChars={34}
                   lineHeight={16}
                 />
               )}
-
-              {tagRows.length > 0 && (
-                <text className="tagLaneTitle" x={layout.tagX} y={node.y + 24}>
-                  付与タグ
-                </text>
-              )}
-
-              {tagRows.map((row) => {
-                const edgeY = node.y + row.edgeY;
-                const tagY = edgeY - TAG_CHIP_HEIGHT / 2;
-                const labelBoxY = edgeY - row.labelBoxHeight / 2;
-                const labelTextY =
-                  edgeY -
-                  ((row.labelLines.length - 1) * EDGE_LABEL_LINE_HEIGHT) / 2;
-                return (
-                  <g key={row.option.id}>
-                    <path
-                      className="tagEdge"
-                      d={`M ${node.x + node.width} ${edgeY} H ${tagEdgeEndX}`}
-                    />
-                    <circle className="tagEdgeDot" cx={tagEdgeEndX} cy={edgeY} r="3.2" />
-                    <rect
-                      className="edgeLabelBg"
-                      x={edgeLabelX - EDGE_LABEL_PADDING_X}
-                      y={labelBoxY}
-                      width={edgeLabelWidth}
-                      height={row.labelBoxHeight}
-                      rx="8"
-                    />
-                    <text
-                      className="edgeLabel"
-                      x={edgeLabelX}
-                      y={labelTextY}
-                    >
-                      {row.labelLines.map((line, index) => (
-                        <tspan
-                          x={edgeLabelX}
-                          dy={index === 0 ? 0 : EDGE_LABEL_LINE_HEIGHT}
-                          key={`${row.option.id}_${line}_${index}`}
-                        >
-                          {line}
-                        </tspan>
-                      ))}
-                    </text>
-                    <rect
-                      className={row.option.isGeneral ? "tagChip general" : "tagChip"}
-                      x={layout.tagX}
-                      y={tagY}
-                      width={layout.tagWidth}
-                      height="32"
-                      rx="8"
-                    />
-                    <text className="tagText" x={layout.tagX + 14} y={tagY + 21}>
-                      {row.option.tag}
-                    </text>
-                  </g>
-                );
-              })}
             </g>
           );
         })}
@@ -3229,41 +3226,45 @@ function WrappedSvgText({
   );
 }
 
-const TAG_TOP_OFFSET = 34;
 const TAG_BOTTOM_PADDING = 34;
 const TAG_ROW_GAP = 8;
-const TAG_CHIP_HEIGHT = 32;
-const EDGE_LABEL_LINE_HEIGHT = 13;
-const EDGE_LABEL_PADDING_X = 8;
-const EDGE_LABEL_PADDING_Y = 7;
+const TAG_NOTE_MAX_CHARS = 48;
+const TAG_NOTE_PADDING_X = 12;
+const TAG_NOTE_PADDING_Y = 10;
+const TAG_NOTE_HEADER_HEIGHT = 16;
+const TAG_NOTE_LINE_HEIGHT = 14;
+const TAG_NOTE_MIN_ROW_HEIGHT = 28;
+const TAG_NOTE_TOP_GAP = 12;
+const GUIDANCE_TOP_GAP = 18;
+const NODE_INSET_X = 22;
+const NODE_PROMPT_END_OFFSET = 108;
+const NODE_PROMPT_LINE_HEIGHT = 18;
+const NODE_GUIDANCE_LINE_HEIGHT = 16;
 
 interface TagRowLayout {
   option: RuleOption & { tag: string };
-  edgeY: number;
-  labelLines: string[];
-  labelBoxHeight: number;
+  y: number;
   rowHeight: number;
 }
 
 function buildTagRows(step: RuleStep, labelMaxChars: number): TagRowLayout[] {
-  let offsetY = TAG_TOP_OFFSET;
+  let offsetY = TAG_NOTE_PADDING_Y + TAG_NOTE_HEADER_HEIGHT + TAG_ROW_GAP;
 
   return step.options
     .filter((option): option is RuleOption & { tag: string } => Boolean(option.tag))
     .map((option) => {
-      const labelLines = wrapText(option.label, labelMaxChars);
-      const labelBoxHeight =
-        labelLines.length * EDGE_LABEL_LINE_HEIGHT + EDGE_LABEL_PADDING_Y * 2;
-      const rowHeight = Math.max(TAG_CHIP_HEIGHT, labelBoxHeight) + 8;
-      const edgeY = offsetY + rowHeight / 2;
+      const lines = wrapText(`${option.label}: ${option.tag}`, labelMaxChars);
+      const rowHeight = Math.max(
+        TAG_NOTE_MIN_ROW_HEIGHT,
+        lines.length * TAG_NOTE_LINE_HEIGHT + 12,
+      );
+      const y = offsetY;
 
       offsetY += rowHeight + TAG_ROW_GAP;
 
       return {
         option,
-        edgeY,
-        labelLines,
-        labelBoxHeight,
+        y,
         rowHeight,
       };
     });
@@ -3276,31 +3277,18 @@ function tagRowsHeight(rows: TagRowLayout[]): number {
 
   const contentHeight = rows.reduce((sum, row) => sum + row.rowHeight, 0);
   return (
-    TAG_TOP_OFFSET +
+    TAG_NOTE_PADDING_Y +
+    TAG_NOTE_HEADER_HEIGHT +
+    TAG_ROW_GAP +
     contentHeight +
     TAG_ROW_GAP * (rows.length - 1) +
-    TAG_BOTTOM_PADDING
+    TAG_BOTTOM_PADDING / 2
   );
-}
-
-function getEdgeLabelWidth(nodeX: number, nodeWidth: number, tagX: number): number {
-  const tagEdgeEndX = tagX - 18;
-  const edgeLabelX = nodeX + nodeWidth + 18;
-  return Math.max(120, tagEdgeEndX - edgeLabelX - EDGE_LABEL_PADDING_X - 6);
-}
-
-function getEdgeLabelMaxChars(labelWidth: number): number {
-  return Math.max(8, Math.floor(labelWidth / 11));
 }
 
 function buildLayout(ruleSet: AnnotationRuleSet) {
   const x = 42;
-  const width = 520;
-  const tagX = 820;
-  const tagWidth = 300;
-  const edgeLabelMaxChars = getEdgeLabelMaxChars(
-    getEdgeLabelWidth(x, width, tagX),
-  );
+  const width = 620;
   const nodes: Array<{
     step: RuleStep;
     x: number;
@@ -3311,13 +3299,19 @@ function buildLayout(ruleSet: AnnotationRuleSet) {
   let y = 88;
 
   ruleSet.steps.forEach((step) => {
-    const promptLines = wrapText(step.prompt, 30).length;
-    const rows = buildTagRows(step, edgeLabelMaxChars);
-    const guidanceLines = step.guidance ? wrapText(step.guidance, 34).length : 0;
+    const promptLines = getPromptLineCount(step);
+    const rows = buildTagRows(step, TAG_NOTE_MAX_CHARS);
+    const guidanceLines = getGuidanceLineCount(step);
+    const tagHeight = tagRowsHeight(rows);
     const height = Math.max(
       132,
-      96 + promptLines * 18 + guidanceLines * 16,
-      tagRowsHeight(rows),
+      NODE_PROMPT_END_OFFSET +
+        promptLines * NODE_PROMPT_LINE_HEIGHT +
+        (rows.length > 0 ? TAG_NOTE_TOP_GAP + tagHeight : 0) +
+        (guidanceLines > 0
+          ? GUIDANCE_TOP_GAP + guidanceLines * NODE_GUIDANCE_LINE_HEIGHT
+          : 0) +
+        28,
     );
     nodes.push({ step, x, y, width, height });
     y += height + 68;
@@ -3325,11 +3319,17 @@ function buildLayout(ruleSet: AnnotationRuleSet) {
 
   return {
     nodes,
-    width: 1200,
+    width: 724,
     height: y + 22,
-    tagX,
-    tagWidth,
   };
+}
+
+function getPromptLineCount(step: RuleStep): number {
+  return wrapText(step.prompt, 30).slice(0, 4).length;
+}
+
+function getGuidanceLineCount(step: RuleStep): number {
+  return step.guidance ? wrapText(step.guidance, 34).slice(0, 4).length : 0;
 }
 
 function getSvgText(svg: SVGSVGElement | null): string {

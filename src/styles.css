@@ -1024,54 +1024,35 @@ select:focus {
   fill: #6a7772;
 }
 
-.flowEdge,
-.tagEdge {
+.flowEdge {
   fill: none;
   stroke: #2f3a3d;
   stroke-width: 1.4;
 }
 
-.tagEdge {
-  stroke: #72817b;
-  stroke-dasharray: 5 6;
-  stroke-linecap: round;
+.tagNoteBox {
+  fill: #f7fbf9;
+  stroke: #d8e5df;
 }
 
-.tagEdgeDot {
-  fill: #72817b;
-}
-
-.tagLaneTitle {
+.tagNoteTitle {
   font-size: 11px;
   font-weight: 900;
   fill: #58706a;
 }
 
-.edgeLabel {
-  font-size: 11px;
-  font-weight: 800;
-  fill: #6b756f;
-  dominant-baseline: middle;
-}
-
-.edgeLabelBg {
-  fill: #f8faf8;
-  stroke: #dde7e1;
-  stroke-width: 1;
-}
-
-.tagChip {
+.tagNoteRow {
   fill: #e7f5f1;
-  stroke: #86bfb0;
+  stroke: #b4d8ce;
 }
 
-.tagChip.general {
+.tagNoteRow.general {
   fill: #fff2d7;
   stroke: #d5aa50;
 }
 
-.tagText {
-  font-size: 13px;
+.tagNoteText {
+  font-size: 11px;
   font-weight: 900;
   fill: #174b45;
 }
