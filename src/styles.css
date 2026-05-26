@@ -1296,23 +1296,38 @@ select:focus {
   box-shadow: 0 0 0 3px rgba(22, 133, 121, 0.14);
 }
 
-.contextCenterLine {
-  position: sticky;
-  top: 50%;
-  z-index: 3;
-  height: 0;
-  border-top: 2px solid rgba(22, 133, 121, 0.45);
-  pointer-events: none;
-}
-
 .primaryContextList {
   flex: 1 1 auto;
 }
 
+.contextResizeHandle {
+  flex: 0 0 16px;
+  margin: 6px 0;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  cursor: row-resize;
+  touch-action: none;
+}
+
+.contextResizeHandle::before {
+  content: "";
+  width: 100%;
+  height: 3px;
+  border-radius: 999px;
+  background: #d9e5df;
+}
+
+.contextResizeHandle:hover::before,
+.contextResizeHandle:active::before {
+  background: var(--teal);
+}
+
 .searchResults {
-  flex: 0 0 min(38%, 260px);
-  margin-top: 12px;
-  padding-top: 12px;
+  flex: 0 0 150px;
+  min-height: 96px;
+  margin-top: 0;
+  padding-top: 9px;
   border-top: 1px solid var(--line);
 }
 
@@ -1333,11 +1348,6 @@ select:focus {
   font-size: 0.74rem;
   font-weight: 900;
   white-space: nowrap;
-}
-
-.contextCenterSpacer {
-  min-height: 50%;
-  pointer-events: none;
 }
 
 .contextList h3 {
@@ -1850,6 +1860,10 @@ select:focus {
 }
 
 .datasetAppShell .primaryContextList {
+  overscroll-behavior: contain;
+}
+
+.datasetAppShell .searchResults {
   overscroll-behavior: contain;
 }
 

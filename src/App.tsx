@@ -4,6 +4,7 @@ import type {
   DragEvent,
   RefObject,
   SetStateAction,
+  PointerEvent as ReactPointerEvent,
   WheelEvent as ReactWheelEvent,
 } from "react";
 import {
@@ -74,6 +75,10 @@ type CenterView = "flow" | "mermaid" | "json";
 type AppMode = "builder" | "dataset";
 type MenuView = "sets" | "overview" | "tags" | "overrides" | "io";
 type StepTemplate = "process" | "decision" | "multi";
+
+const SEARCH_RESULTS_DEFAULT_HEIGHT = 150;
+const SEARCH_RESULTS_MIN_HEIGHT = 96;
+const PRIMARY_CONTEXT_MIN_HEIGHT = 220;
 
 const tagFamilies: TagFamily[] = ["社会", "FB", "タスク", "感情"];
 
@@ -2300,6 +2305,9 @@ function DatasetWorkspace({
   onResponsePinIdsChange: Dispatch<SetStateAction<string[]>>;
 }) {
   const [expandedRowId, setExpandedRowId] = useState("");
+  const [searchResultsHeight, setSearchResultsHeight] = useState(
+    SEARCH_RESULTS_DEFAULT_HEIGHT,
+  );
   const contextPanelRef = useRef<HTMLElement | null>(null);
   const contextListRef = useRef<HTMLDivElement | null>(null);
   const activeContextCardRef = useRef<HTMLElement | null>(null);
@@ -2494,6 +2502,11 @@ function DatasetWorkspace({
   };
 
   const handleContextWheel = (event: ReactWheelEvent<HTMLElement>) => {
+    const target = event.target;
+    if (target instanceof Element && target.closest(".searchResults")) {
+      return;
+    }
+
     event.preventDefault();
     event.stopPropagation();
     scrollContextList(normalizeWheelDelta(event));
@@ -2502,6 +2515,51 @@ function DatasetWorkspace({
   const stopDatasetWheel = (event: ReactWheelEvent<HTMLElement>) => {
     event.preventDefault();
     event.stopPropagation();
+  };
+
+  const getSearchResultsMaxHeight = () => {
+    const panel = contextPanelRef.current;
+    if (!panel) {
+      return SEARCH_RESULTS_DEFAULT_HEIGHT * 2;
+    }
+
+    return Math.max(
+      SEARCH_RESULTS_MIN_HEIGHT,
+      panel.getBoundingClientRect().height - PRIMARY_CONTEXT_MIN_HEIGHT,
+    );
+  };
+
+  const resizeSearchResults = (nextHeight: number) => {
+    setSearchResultsHeight(
+      clamp(
+        nextHeight,
+        SEARCH_RESULTS_MIN_HEIGHT,
+        getSearchResultsMaxHeight(),
+      ),
+    );
+  };
+
+  const startContextPaneResize = (event: ReactPointerEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    const startY = event.clientY;
+    const startHeight = searchResultsHeight;
+
+    const onPointerMove = (moveEvent: PointerEvent) => {
+      moveEvent.preventDefault();
+      resizeSearchResults(startHeight - (moveEvent.clientY - startY));
+    };
+
+    const onPointerUp = () => {
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("pointerup", onPointerUp);
+      window.removeEventListener("pointercancel", onPointerUp);
+    };
+
+    window.addEventListener("pointermove", onPointerMove);
+    window.addEventListener("pointerup", onPointerUp);
+    window.addEventListener("pointercancel", onPointerUp);
   };
 
   useEffect(() => {
@@ -2682,12 +2740,10 @@ function DatasetWorkspace({
           aria-label="文脈タイムライン。上下キーでスクロールできます。"
           onScroll={scheduleContextCenterSync}
         >
-          <div className="contextCenterLine" aria-hidden="true" />
           <div className="contextListHeader">
             <h3>同じスレッドの全件</h3>
             <span>{threadRows.length}件</span>
           </div>
-          <div className="contextCenterSpacer" aria-hidden="true" />
           {threadRows.map((row) => {
             const isCurrent = row.rowId === currentRow.rowId;
             return (
@@ -2711,10 +2767,21 @@ function DatasetWorkspace({
               />
             );
           })}
-          <div className="contextCenterSpacer" aria-hidden="true" />
         </div>
 
-        <div className="contextList searchResults">
+        <div
+          className="contextResizeHandle"
+          role="separator"
+          aria-orientation="horizontal"
+          title="同じスレッドと検索結果の表示割合を変更"
+          onDoubleClick={() => resizeSearchResults(SEARCH_RESULTS_DEFAULT_HEIGHT)}
+          onPointerDown={startContextPaneResize}
+        />
+
+        <div
+          className="contextList searchResults"
+          style={{ flexBasis: searchResultsHeight }}
+        >
           <h3>検索結果</h3>
           {searchResults.length === 0 ? (
             <p className="muted smallText">キーワードに合うチャットがここに出ます。</p>
@@ -3156,6 +3223,10 @@ function normalizeWheelDelta(event: ReactWheelEvent<HTMLElement>): number {
   }
 
   return event.deltaY;
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
 }
 
 function WrappedSvgText({
