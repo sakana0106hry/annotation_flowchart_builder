@@ -2680,6 +2680,13 @@ function DatasetWorkspace({
         return;
       }
 
+      if (
+        target instanceof Element &&
+        target.closest(".datasetAnnotationPanel")
+      ) {
+        return;
+      }
+
       event.preventDefault();
     };
 
@@ -3007,7 +3014,6 @@ function DatasetWorkspace({
       <aside
         className="panel datasetAnnotationPanel"
         aria-label="CSV注釈"
-        onWheel={stopDatasetWheel}
       >
         <div className="panelHeader datasetHeader">
           <div>

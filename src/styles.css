@@ -1288,6 +1288,10 @@ select:focus {
   overflow: hidden;
 }
 
+.datasetAnnotationPanel {
+  overflow: auto;
+}
+
 .targetPanel {
   position: relative;
   overflow: hidden;
@@ -1827,13 +1831,12 @@ select:focus {
 }
 
 .datasetSteps {
-  flex: 1 1 auto;
-  min-height: 0;
+  flex: 0 0 auto;
+  min-height: auto;
   display: grid;
   align-content: start;
   gap: 10px;
-  overflow: auto;
-  padding-right: 2px;
+  overflow: visible;
 }
 
 .compactStep {
@@ -1967,6 +1970,7 @@ select:focus {
 
 .datasetAppShell .datasetAnnotationPanel {
   grid-column: auto;
+  overflow: auto;
 }
 
 .datasetAppShell .primaryContextList {
@@ -1981,7 +1985,6 @@ select:focus {
 .datasetAppShell .datasetAnnotationPanel,
 .datasetAppShell .targetMessage,
 .datasetAppShell .centerCardList,
-.datasetAppShell .datasetSteps,
 .datasetAppShell .messagePreviewBody {
   overscroll-behavior: none;
 }
