@@ -2382,6 +2382,7 @@ function DatasetWorkspace({
   onResponsePinIdsChange: Dispatch<SetStateAction<string[]>>;
 }) {
   const [expandedRowId, setExpandedRowId] = useState("");
+  const [activeStepSection, setActiveStepSection] = useState("");
   const [searchResultsHeight, setSearchResultsHeight] = useState(
     SEARCH_RESULTS_DEFAULT_HEIGHT,
   );
@@ -2399,6 +2400,40 @@ function DatasetWorkspace({
     () => deriveAnnotationResult(ruleSet, annotation.selections),
     [annotation.selections, ruleSet],
   );
+  const stepSections = useMemo(() => buildStepSections(ruleSet.steps), [ruleSet.steps]);
+  const activeSectionKey =
+    stepSections.find((section) => section.name === activeStepSection)?.name ??
+    stepSections[0]?.name ??
+    "";
+  const activeSectionSteps =
+    stepSections.find((section) => section.name === activeSectionKey)?.steps ?? [];
+  const sectionProgress = useMemo(
+    () =>
+      stepSections.map((section) => {
+        const total = section.steps.length;
+        const completed = section.steps.filter((step) =>
+          isStepCompleted(step, annotation.selections),
+        ).length;
+
+        return {
+          ...section,
+          total,
+          completed,
+          isStarted: completed > 0,
+          isComplete: total > 0 && completed === total,
+        };
+      }),
+    [annotation.selections, stepSections],
+  );
+
+  useEffect(() => {
+    if (
+      stepSections.length > 0 &&
+      !stepSections.some((section) => section.name === activeStepSection)
+    ) {
+      setActiveStepSection(stepSections[0].name);
+    }
+  }, [activeStepSection, stepSections]);
 
   const threadRows = useMemo(() => {
     if (!currentRow) {
@@ -2990,15 +3025,48 @@ function DatasetWorkspace({
           </button>
         </div>
 
+        {sectionProgress.length > 0 && (
+          <div className="sectionBadgeBar" aria-label="判定系統">
+            {sectionProgress.map((section) => {
+              const isSelected = section.name === activeSectionKey;
+              const className = [
+                "sectionBadgeButton",
+                section.isStarted ? "started" : "",
+                section.isComplete ? "complete" : "",
+                isSelected ? "selected" : "",
+              ]
+                .filter(Boolean)
+                .join(" ");
+
+              return (
+                <button
+                  className={className}
+                  type="button"
+                  key={section.name}
+                  aria-pressed={isSelected}
+                  onClick={() => setActiveStepSection(section.name)}
+                >
+                  <span>{section.name}</span>
+                  <strong>
+                    {section.completed}/{section.total}
+                  </strong>
+                </button>
+              );
+            })}
+          </div>
+        )}
+
         <div className="datasetSteps">
-          {ruleSet.steps.map((step) => (
-            <div className="runnerStep compactStep" key={step.id}>
-              <div className="runnerStepHeader">
-                <span className="miniBadge">{step.badge}</span>
-                <strong>{step.title}</strong>
-              </div>
-              <p>{step.prompt}</p>
-              {step.options.length > 0 && (
+          {activeSectionSteps.length === 0 ? (
+            <p className="muted smallText">このタグセットには判定項目がありません。</p>
+          ) : (
+            activeSectionSteps.map((step) => (
+              <div className="runnerStep compactStep" key={step.id}>
+                <div className="runnerStepHeader">
+                  <span className="miniBadge">{step.badge}</span>
+                  <strong>{step.title}</strong>
+                </div>
+                <p>{step.prompt}</p>
                 <div className="choiceGrid compactChoices">
                   {step.options.map((option) => (
                     <label className="choice" key={option.id}>
@@ -3025,9 +3093,9 @@ function DatasetWorkspace({
                     </label>
                   ))}
                 </div>
-              )}
-            </div>
-          ))}
+              </div>
+            ))
+          )}
         </div>
 
         <label className="fieldBlock">
@@ -3588,6 +3656,35 @@ function buildAnnotationBreakdown(result: ReturnType<typeof deriveAnnotationResu
       return `${item.stepTitle}: ${labels}${tags}`;
     })
     .join("; ");
+}
+
+interface StepSectionGroup {
+  name: string;
+  steps: RuleStep[];
+}
+
+function buildStepSections(steps: RuleStep[]): StepSectionGroup[] {
+  const groups: StepSectionGroup[] = [];
+
+  steps
+    .filter((step) => step.options.length > 0)
+    .forEach((step) => {
+      const name = step.section.trim() || "未分類";
+      const group = groups.find((item) => item.name === name);
+
+      if (group) {
+        group.steps.push(step);
+        return;
+      }
+
+      groups.push({ name, steps: [step] });
+    });
+
+  return groups;
+}
+
+function isStepCompleted(step: RuleStep, selections: StepSelections): boolean {
+  return step.options.length > 0 && (selections[step.id] ?? []).length > 0;
 }
 
 function csvCell(value: string): string {
