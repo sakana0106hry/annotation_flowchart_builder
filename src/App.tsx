@@ -935,39 +935,6 @@ export default function App() {
                 </div>
 
                 <div className="exportButtons">
-                  {centerView === "flow" && (
-                    <div className="zoomControls" aria-label="フロー倍率">
-                      <button
-                        className="iconButton"
-                        type="button"
-                        onClick={() => updateFlowZoom(-FLOW_ZOOM_STEP)}
-                        disabled={flowZoom <= FLOW_ZOOM_MIN}
-                        aria-label="縮小"
-                        title="縮小"
-                      >
-                        <ZoomOut size={17} />
-                      </button>
-                      <button
-                        className="zoomValue"
-                        type="button"
-                        onClick={() => setFlowZoom(0.8)}
-                        aria-label="倍率をリセット"
-                        title="倍率をリセット"
-                      >
-                        {Math.round(flowZoom * 100)}%
-                      </button>
-                      <button
-                        className="iconButton"
-                        type="button"
-                        onClick={() => updateFlowZoom(FLOW_ZOOM_STEP)}
-                        disabled={flowZoom >= FLOW_ZOOM_MAX}
-                        aria-label="拡大"
-                        title="拡大"
-                      >
-                        <ZoomIn size={17} />
-                      </button>
-                    </div>
-                  )}
                   <button className="iconTextButton secondary" type="button" onClick={exportSvg}>
                     <Download size={17} />
                     SVG
@@ -992,6 +959,42 @@ export default function App() {
                   </button>
                 </div>
               </div>
+
+              {centerView === "flow" && (
+                <div className="flowZoomBar">
+                  <div className="zoomControls" aria-label="フロー倍率">
+                    <button
+                      className="iconButton"
+                      type="button"
+                      onClick={() => updateFlowZoom(-FLOW_ZOOM_STEP)}
+                      disabled={flowZoom <= FLOW_ZOOM_MIN}
+                      aria-label="縮小"
+                      title="縮小"
+                    >
+                      <ZoomOut size={17} />
+                    </button>
+                    <button
+                      className="zoomValue"
+                      type="button"
+                      onClick={() => setFlowZoom(0.8)}
+                      aria-label="倍率をリセット"
+                      title="倍率をリセット"
+                    >
+                      {Math.round(flowZoom * 100)}%
+                    </button>
+                    <button
+                      className="iconButton"
+                      type="button"
+                      onClick={() => updateFlowZoom(FLOW_ZOOM_STEP)}
+                      disabled={flowZoom >= FLOW_ZOOM_MAX}
+                      aria-label="拡大"
+                      title="拡大"
+                    >
+                      <ZoomIn size={17} />
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {centerView === "flow" && (
                 <FlowCanvas ruleSet={ruleSet} svgRef={svgRef} zoom={flowZoom} />

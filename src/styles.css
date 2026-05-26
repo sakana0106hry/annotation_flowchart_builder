@@ -99,6 +99,15 @@ button {
   gap: 8px;
 }
 
+.exportButtons,
+.stageToolbar {
+  flex-wrap: wrap;
+}
+
+.exportButtons {
+  justify-content: flex-end;
+}
+
 .modeSwitch {
   padding: 4px;
   border-radius: 8px;
@@ -952,6 +961,15 @@ select:focus {
     linear-gradient(90deg, #eef4ef 1px, transparent 1px),
     #f8faf8;
   background-size: 32px 32px;
+}
+
+.flowZoomBar {
+  min-height: 44px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  justify-content: flex-end;
+  background: #fbfbf7;
 }
 
 .flowSvg {
