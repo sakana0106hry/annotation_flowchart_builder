@@ -511,6 +511,16 @@ export default function App() {
     setSelectedStepId(newStep.id);
   };
 
+  const addMultiAssignFlowScaffold = () => {
+    const newSteps = createMultiAssignFlowScaffold();
+
+    setRuleSet((current) => ({
+      ...current,
+      steps: [...current.steps, ...newSteps],
+    }));
+    setSelectedStepId(newSteps[0]?.id ?? "");
+  };
+
   const removeStep = (stepId: string) => {
     setRuleSet((current) => {
       if (current.steps.length <= 1) {
@@ -880,6 +890,7 @@ export default function App() {
               onRemoveStep={removeStep}
               onReorderStep={reorderStep}
               onAddOption={addOption}
+              onAddFlowScaffold={addMultiAssignFlowScaffold}
               onUpdateOption={updateOption}
               onRemoveOption={removeOption}
             />
@@ -1547,6 +1558,7 @@ function RuleEditor({
   onRemoveStep,
   onReorderStep,
   onAddOption,
+  onAddFlowScaffold,
   onUpdateOption,
   onRemoveOption,
 }: {
@@ -1564,6 +1576,7 @@ function RuleEditor({
     placement: "before" | "after",
   ) => void;
   onAddOption: (stepId: string) => void;
+  onAddFlowScaffold: () => void;
   onUpdateOption: (
     stepId: string,
     optionId: string,
@@ -1648,6 +1661,11 @@ function RuleEditor({
             <ListChecks size={17} />
             <strong>複数選択</strong>
             <span>複数タグを同時に付ける</span>
+          </button>
+          <button type="button" onClick={onAddFlowScaffold}>
+            <Workflow size={17} />
+            <strong>多重付与フロー</strong>
+            <span>分割、反復、統合の骨組みを追加</span>
           </button>
         </div>
       </div>
@@ -3661,6 +3679,130 @@ function createStepFromTemplate(template: StepTemplate): RuleStep {
       { id: makeId("no"), label: "いいえ", description: "次へ" },
     ],
   };
+}
+
+function createMultiAssignFlowScaffold(): RuleStep[] {
+  return [
+    {
+      id: makeId("read_target"),
+      section: "準備",
+      title: "対象メッセージを読む",
+      badge: "Start",
+      kind: "process",
+      prompt: "対象メッセージMを読み、作業対象を確認する。",
+      guidance: "ここではタグを付けず、後続の判定に必要な前提を確認します。",
+      examples: [],
+      options: [],
+    },
+    {
+      id: makeId("check_context"),
+      section: "準備",
+      title: "文脈を確認する",
+      badge: "Ctx",
+      kind: "process",
+      prompt: "話者、前後メッセージ、返信関係、話題の流れを確認する。",
+      guidance: "必要に応じて左枠の文脈やピン留めを使って確認します。",
+      examples: [],
+      options: [],
+    },
+    {
+      id: makeId("split_units"),
+      section: "分割",
+      title: "発話単位に分ける",
+      badge: "Split",
+      kind: "process",
+      prompt: "対象メッセージMを、判定しやすい発話単位 U1, U2, ... Un に分ける。",
+      guidance:
+        "一文、節、行動単位など、アノテーション基準に合わせて一貫した粒度にします。",
+      examples: [],
+      options: [],
+    },
+    {
+      id: makeId("init_message_set"),
+      section: "集約",
+      title: "MessageTagSetを空にする",
+      badge: "Init",
+      kind: "process",
+      prompt: "メッセージ全体に付くタグ集合を空の状態から始める。",
+      guidance: "各発話単位で得たタグを最後に統合します。",
+      examples: [],
+      options: [],
+    },
+    {
+      id: makeId("pick_unit"),
+      section: "反復",
+      title: "未判定の発話単位を選ぶ",
+      badge: "Loop",
+      kind: "process",
+      prompt: "未判定の発話単位 Ui があれば、次の Ui を選んで判定に進む。",
+      guidance:
+        "未判定のUiがなくなったら、全TagSet_Uiの統合へ進む想定のループです。",
+      examples: [],
+      options: [],
+    },
+    {
+      id: makeId("init_unit_set"),
+      section: "発話単位",
+      title: "TagSet_Uiを空にする",
+      badge: "Unit",
+      kind: "process",
+      prompt: "現在の発話単位Uiに対するタグ集合を空の状態から始める。",
+      guidance: "この後の判定で該当するタグを複数追加します。",
+      examples: [],
+      options: [],
+    },
+    {
+      id: makeId("multi_check"),
+      section: "判定",
+      title: "判定項目を確認する",
+      badge: "Check",
+      kind: "multi",
+      prompt: "Uiに該当する条件をすべて選ぶ。必要に応じて選択肢とタグIDを編集する。",
+      guidance:
+        "該当するものを選んでも判定は終了しません。次の判定項目へ進み、複数タグを積み上げます。",
+      examples: [],
+      options: [
+        {
+          id: makeId("condition"),
+          label: "該当する条件",
+          description: "この選択肢に、実際に付与したいタグIDを設定してください。",
+        },
+      ],
+    },
+    {
+      id: makeId("record_unit_set"),
+      section: "記録",
+      title: "TagSet_Uiを記録する",
+      badge: "Save",
+      kind: "process",
+      prompt: "現在の発話単位Uiに付いたタグ集合を記録する。",
+      guidance: "次の発話単位があれば反復へ戻ります。",
+      examples: [],
+      options: [],
+    },
+    {
+      id: makeId("merge_units"),
+      section: "統合",
+      title: "全TagSet_Uiを統合する",
+      badge: "Merge",
+      kind: "process",
+      prompt: "すべての発話単位のTagSet_Uiを統合し、MessageTagSetを作成する。",
+      guidance: "重複タグは1つにまとめます。必要なら後続で優先規則を確認します。",
+      examples: [],
+      options: [],
+    },
+    {
+      id: makeId("finalize_message"),
+      section: "確定",
+      title: "アノテーションを確定する",
+      badge: "End",
+      kind: "process",
+      prompt: "対象メッセージMの最終アノテーションとしてMessageTagSetを確定する。",
+      guidance: "必要に応じてメモや応答先も確認してからCSVへ書き出します。",
+      examples: [],
+      options: [],
+    },
+  ];
 }
 
 function makeId(prefix: string): string {
