@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "build": "tsc && vite build",
-    "build:pages": "tsc && vite build --base /annotation_flowchart/",
+    "build:pages": "tsc && vite build --base /annotation_flowchart_builder/",
     "preview": "vite preview --host 127.0.0.1"
   },
   "dependencies": {

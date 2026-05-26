@@ -4,7 +4,7 @@
 
 公開版:
 
-https://sakana0106hry.github.io/annotation_flowchart/
+https://sakana0106hry.github.io/annotation_flowchart_builder/
 
 ## このREADMEの読み方
 
@@ -107,7 +107,7 @@ npm run build:pages
 
 GitHub Pages:
 
-https://sakana0106hry.github.io/annotation_flowchart/
+https://sakana0106hry.github.io/annotation_flowchart_builder/
 
 ### 非公開データの扱い
 
